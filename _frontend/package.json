@@ -1,0 +1,28 @@
+{
+  "name": "@zifang/z-mist-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.1.0",
+    "@yuku123/z-frontend-common": "^0.1.1",
+    "antd": "^6.3.3",
+    "axios": "^1.16.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.13.1",
+    "@yuku123/z-mist-frontend-component": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^6.2.0"
+  }
+}

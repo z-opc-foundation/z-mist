@@ -1,0 +1,19 @@
+package io.github.yuku123.z.mist.admin;
+
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
+
+/**
+ * z-mist 管理端启动类
+ */
+@SpringBootApplication
+@ComponentScan(basePackages = {"io.github.yuku123.z.mist"})
+@MapperScan("io.github.yuku123.z.mist.core.domain.mapper")
+public class ZMistApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ZMistApplication.class, args);
+    }
+}

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.github.yuku123</groupId>
+        <artifactId>z-mist</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>z-mist-web</artifactId>
+    <name>z-mist-web</name>
+    <description>
+        z-mist Spring Boot Starter 入口: SecretController + MistSecurityConfig + MistMybatisPlusConfig + MistKnife4jConfig + MistWebAutoConfiguration。
+        业务模块一行 import 即可启用 z-mist HTTP API。
+    </description>
+
+    <url>https://github.com/z-opc-foundation/z-mist</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>yuku123</id>
+            <name>yuku123</name>
+            <email>1340947819@qq.com</email>
+            <organization>z-opc-foundation</organization>
+            <organizationUrl>https://github.com/z-opc-foundation</organizationUrl>
+            <timezone>+08:00</timezone>
+            <roles>
+                <role>owner</role>
+            </roles>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:https://github.com/z-opc-foundation/z-mist.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/z-opc-foundation/z-mist.git</developerConnection>
+        <url>https://github.com/z-opc-foundation/z-mist</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-mist-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-util-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-boot-web-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-boot-datasource-starter</artifactId>
+        </dependency>
+        <!--
+            SecretController + MistSecurityConfig 使用 @PreAuthorize / @EnableGlobalMethodSecurity,
+            来自 spring-security-config. spring-boot-starter-security 一并带来 spring-security-core
+            和 spring-security-web. 业务模块的 application.properties 应该 exclude SecurityAutoConfiguration,
+            所以 HTTP filter chain 不会被自动启用 — 只是单纯用 @PreAuthorize 注解.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.xiaoymin</groupId>
+            <artifactId>knife4j-openapi3-spring-boot-starter</artifactId>
+            <version>${knife4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+        </dependency>
+        <!-- cron-utils 真实 cron 解析(Quartz 格式) -->
+        <dependency>
+            <groupId>com.cronutils</groupId>
+            <artifactId>cron-utils</artifactId>
+            <version>${cron-utils.version}</version>
+        </dependency>
+        <!-- OkHttp 用于 Webhook 通知 -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>${okhttp.version}</version>
+        </dependency>
+
+        <!-- JUnit5 测试支持 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

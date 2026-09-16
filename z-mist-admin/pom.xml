@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.github.yuku123</groupId>
+        <artifactId>z-mist</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>z-mist-admin</artifactId>
+    <name>z-mist-admin</name>
+    <description>
+        z-mist 独立可启动演示应用（不入 reactor）: 启动后即可在 http://localhost:9085 看到 z-mist 控制台 + Knife4j API 文档。
+        本地启动: cd z-mist-admin &amp;&amp; mvn spring-boot:run
+        Docker: docker build -t z-mist-admin:latest . (见仓根 Dockerfile)
+    </description>
+
+    <url>https://github.com/z-opc-foundation/z-mist</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>yuku123</id>
+            <name>yuku123</name>
+            <email>1340947819@qq.com</email>
+            <organization>z-opc-foundation</organization>
+            <organizationUrl>https://github.com/z-opc-foundation</organizationUrl>
+            <timezone>+08:00</timezone>
+            <roles>
+                <role>owner</role>
+            </roles>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:https://github.com/z-opc-foundation/z-mist.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/z-opc-foundation/z-mist.git</developerConnection>
+        <url>https://github.com/z-opc-foundation/z-mist</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+        </dependency>
+
+        <!-- 数据源 starter（包含 druid + mybatis-plus + mysql，已含全部数据源依赖） -->
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-boot-datasource-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.xiaoymin</groupId>
+            <artifactId>knife4j-openapi3-spring-boot-starter</artifactId>
+            <version>${knife4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-util-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-mist-core</artifactId>
+        </dependency>
+
+        <!--
+            SecretController + MistSecurityConfig 使用 @PreAuthorize / @EnableGlobalMethodSecurity,
+            来自 spring-security-config. spring-boot-starter-security 一并带来 spring-security-core
+            和 spring-security-web. application.yml 排除 SecurityAutoConfiguration,
+            所以 HTTP filter chain 不会被自动启用 — 只是单纯用 @PreAuthorize 注解.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <!-- FEATURE012: 关键修复 - 跳过 repackage, 让 z-mist-admin 输出普通 library jar
+                                 否则类被打到 BOOT-INF/classes/ 下, 主 fat-jar 的 classloader 找不到 SecretController -->
+                            <skip>true</skip>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        z-mist 自包含 parent — 不依赖 monorepo 内部 parent,
+        改造为 io.github.yuku123 namespace (Maven Central 命名空间).
+        使用 ${revision} (CI-friendly versions) + flatten-maven-plugin 发版自动替换.
+
+        模块结构:
+          - z-mist-common            : 协议层 (Message / Encoder / Decoder / Serializer / DTO)
+          - z-mist-core              : 服务端核心 (Netty server + DataSource + Web Controller + Scheduler)
+          - z-mist-web               : Spring Boot Starter 入口 (含 SecretController + AutoConfiguration)
+          - z-mist-client            : 客户端 SDK (MistClient + ClientBusinessHandler)
+          - z-mist-sdk               : fat-jar (含可执行 Main, 用 maven-shade-plugin 打)
+        注: z-mist-admin 是独立可启动演示应用 (不在 reactor, 本地 mvn spring-boot:run)
+            _frontend 是 z-mist-admin 的前端源码 (vite + vue, 不进 reactor)
+    -->
+    <groupId>io.github.yuku123</groupId>
+    <artifactId>z-mist</artifactId>
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+    <name>z-mist (Secret Management Platform Aggregator)</name>
+    <description>
+        Z-Mist: 分布式密钥/秘密管理平台。
+        提供 Netty 私有协议 + MyBatis-Plus 数据层 + Spring Boot Starter 一行集成 + Web 控制台 + 调度器（密钥轮换/过期/Webhook 通知）。
+    </description>
+
+    <url>https://github.com/z-opc-foundation/z-mist</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>yuku123</id>
+            <name>yuku123</name>
+            <email>1340947819@qq.com</email>
+            <organization>z-opc-foundation</organization>
+            <organizationUrl>https://github.com/z-opc-foundation</organizationUrl>
+            <timezone>+08:00</timezone>
+            <roles>
+                <role>owner</role>
+            </roles>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:https://github.com/z-opc-foundation/z-mist.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/z-opc-foundation/z-mist.git</developerConnection>
+        <url>https://github.com/z-opc-foundation/z-mist</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <modules>
+        <module>z-mist-common</module>
+        <module>z-mist-core</module>
+        <module>z-mist-web</module>
+        <module>z-mist-client</module>
+        <module>z-mist-sdk</module>
+        <!-- z-mist-admin 不进 reactor: 独立可启动演示应用 + 前端 (vite) -->
+    </modules>
+
+    <properties>
+        <!-- CI-friendly 版本根 (发版改这一处即可) -->
+        <revision>1.0.1</revision>
+
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- 第三方版本 -->
+        <spring-boot.version>2.7.12</spring-boot.version>
+        <druid.version>1.2.18</druid.version>
+        <mysql.version>8.0.33</mysql.version>
+        <log4j2.version>2.20.0</log4j2.version>
+        <slf4j.version>1.7.36</slf4j.version>
+        <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <netty.version>4.1.108.Final</netty.version>
+        <knife4j.version>4.1.0</knife4j.version>
+        <cron-utils.version>9.2.1</cron-utils.version>
+        <okhttp.version>4.12.0</okhttp.version>
+
+        <!-- 内部依赖 -->
+        <z-boot.version>1.0.8</z-boot.version>
+        <z-util.version>1.0.10</z-util.version>
+
+        <!-- Maven 插件版本 -->
+        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
+        <central-publishing-maven-plugin.version>0.7.0</central-publishing-maven-plugin.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Boot BOM -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 内部 module -->
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-mist-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-mist-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-mist-web</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-mist-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-mist-sdk</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- 第三方 BOM -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-bom</artifactId>
+                <version>${log4j2.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-boot-dependencies</artifactId>
+                <version>${z-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-util-core</artifactId>
+                <version>${z-util.version}</version>
+            </dependency>
+
+            <!-- z-boot-* starter 由 z-boot 1.0.8 同步发布，BOM 不管理自家 starter，需要显式锁版本 -->
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-boot-web-starter</artifactId>
+                <version>${z-boot.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-boot-datasource-starter</artifactId>
+                <version>${z-boot.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven-plugin.version}</version>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <!-- oss 模式: 子 POM 完全 self-contained,
+                         自定义 ${xxx} 属性也会解析, url/licenses/developers/scm 元数据保留.
+                         详见 lead/005_技术架构/004_flatten_maven_plugin_模式选择.md -->
+                    <flattenMode>oss</flattenMode>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals><goal>flatten</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals><goal>clean</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+    <profiles>
+        <profile>
+            <id>central</id>
+            <properties>
+                <maven.javadoc.skip>false</maven.javadoc.skip>
+                <central.gpg.skip>false</central.gpg.skip>
+            </properties>
+            <distributionManagement>
+                <repository>
+                    <id>central</id>
+                    <url>https://central.sonatype.com</url>
+                </repository>
+                <snapshotRepository>
+                    <id>central</id>
+                    <url>https://central.sonatype.com</url>
+                </snapshotRepository>
+            </distributionManagement>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals><goal>jar-no-fork</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.11.2</version>
+                        <configuration>
+                            <!-- 跨 module @see 引用 + 缺注释:跳过 doclint 严格检查,不影响 jar 生成 -->
+                            <doclint>none</doclint>
+                            <failOnError>false</failOnError>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals><goal>jar</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals><goal>sign</goal></goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central-publishing-maven-plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <tokenAuth>true</tokenAuth>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>uploaded</waitUntil>
+                            <waitMaxTime>1800</waitMaxTime>
+                            <waitPollingInterval>10</waitPollingInterval>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>
