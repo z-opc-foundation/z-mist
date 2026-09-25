@@ -5,53 +5,43 @@ import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Proxy;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * FEATURE024 起步：SecretController 集成测试。
+ * FEATURE024 起步：SecretController 单元测试.
  * <p>
- * 覆盖：5 个端点 + 限流触发 + 写 access_log 调 recordAccess。
+ * 家法规范 (SOP 步骤 8): standalone MockMvc + JDK 动态代理注入 service,
+ * 不启动 Spring 容器(禁用 Boot 集成测试注解), 零 Mockito.
+ * 覆盖：5 个端点 + 限流触发 + 写 access_log 调 recordAccess.
+ * <p>
+ * 每个用例新建 controller, 保证限流计数桶互不污染。
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 public class SecretControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @MockBean
-    private IZMistSecretService secretService;
+    private Map<String, Function<Object[], Object>> answers;
+    private Map<String, Integer> callCounts;
 
     @BeforeEach
-    void setUp() {
-        // 给 SecurityContext 注入 anonymous token，让 SecretController 的
-        // @PreAuthorize("... or isAnonymous()") 走匿名分支通过
-        SecurityContextHolder.getContext().setAuthentication(
-                new AnonymousAuthenticationToken(
-                        "test-key",
-                        "anonymous",
-                        AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS")));
+    void setUp() throws Exception {
+        answers = new HashMap<>();
+        callCounts = new HashMap<>();
 
-        // mock service 行为
         ZMistSecretInfo mockSecret = new ZMistSecretInfo();
         mockSecret.setId(1L);
         mockSecret.setSecretKey("demo_db_password");
@@ -61,23 +51,54 @@ public class SecretControllerTest {
         mockSecret.setValueMd5("md5fingerprint");
         mockSecret.setSecretType("password");
 
-        when(secretService.getSecret(eq("demo_db_password"), eq("demo"), eq("dev")))
-                .thenReturn(mockSecret);
-        when(secretService.listSecrets(any(), any(), any()))
-                .thenReturn(Collections.singletonList(mockSecret));
-        when(secretService.saveSecret(any())).thenReturn(mockSecret);
-        when(secretService.updateSecret(any())).thenReturn(mockSecret);
-        when(secretService.deleteSecret(any(), any(), any())).thenReturn(true);
+        answers.put("getSecret", args -> mockSecret);
+        answers.put("listSecrets", args -> Collections.singletonList(mockSecret));
+        answers.put("saveSecret", args -> mockSecret);
+        answers.put("updateSecret", args -> mockSecret);
+        answers.put("deleteSecret", args -> true);
+
+        IZMistSecretService proxy = (IZMistSecretService) Proxy.newProxyInstance(
+                IZMistSecretService.class.getClassLoader(),
+                new Class<?>[]{IZMistSecretService.class},
+                (p, method, args) -> {
+                    if (method.getDeclaringClass() == Object.class) {
+                        return method.invoke(p, args);
+                    }
+                    callCounts.merge(method.getName(), 1, Integer::sum);
+                    Function<Object[], Object> answer = answers.get(method.getName());
+                    if (answer != null) {
+                        return answer.apply(args);
+                    }
+                    Class<?> rt = method.getReturnType();
+                    if (rt == boolean.class) {
+                        return false;
+                    }
+                    if (rt == int.class) {
+                        return 0;
+                    }
+                    if (rt == long.class) {
+                        return 0L;
+                    }
+                    return null;
+                });
+
+        com.zifang.z.mist.admin.api.SecretController controller =
+                new com.zifang.z.mist.admin.api.SecretController();
+        Field f = com.zifang.z.mist.admin.api.SecretController.class.getDeclaredField("secretService");
+        f.setAccessible(true);
+        f.set(controller, proxy);
+
+        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
     @Test
     void shouldSaveSecret() throws Exception {
-        ZMistSecretInfo body = new ZMistSecretInfo();
-        body.setSecretKey("demo_db_password");
-        body.setGroup("demo");
-        body.setNamespace("dev");
-        body.setEncryptedValue("super-secret-pwd");
-        body.setSecretType("password");
+        Map<String, Object> body = new HashMap<>();
+        body.put("secretKey", "demo_db_password");
+        body.put("group", "demo");
+        body.put("namespace", "dev");
+        body.put("encryptedValue", "super-secret-pwd");
+        body.put("secretType", "password");
 
         mockMvc.perform(post("/api/secret")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -112,13 +133,13 @@ public class SecretControllerTest {
 
     @Test
     void shouldUpdateSecret() throws Exception {
-        ZMistSecretInfo body = new ZMistSecretInfo();
-        body.setId(1L);
-        body.setSecretKey("demo_db_password");
-        body.setGroup("demo");
-        body.setNamespace("dev");
-        body.setEncryptedValue("new-value");
-        body.setSecretType("password");
+        Map<String, Object> body = new HashMap<>();
+        body.put("id", 1);
+        body.put("secretKey", "demo_db_password");
+        body.put("group", "demo");
+        body.put("namespace", "dev");
+        body.put("encryptedValue", "new-value");
+        body.put("secretType", "password");
 
         mockMvc.perform(put("/api/secret")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -130,7 +151,9 @@ public class SecretControllerTest {
 
     @Test
     void shouldDeleteSecret() throws Exception {
-        mockMvc.perform(delete("/api/secret/demo_db_password")
+        // 控制器是 @DeleteMapping 无路径 + secretKey 走 query param (旧测试用路径变量导致 404)
+        mockMvc.perform(delete("/api/secret")
+                        .param("secretKey", "demo_db_password")
                         .param("group", "demo")
                         .param("namespace", "dev")
                         .header("X-Staff-No", "test-user"))
@@ -140,30 +163,36 @@ public class SecretControllerTest {
     }
 
     @Test
+    void shouldRecordAccessOnEveryCall() throws Exception {
+        // 顺序执行 4 个业务调用后断言 recordAccess 次数 (save/get/list/delete 各 1)
+        mockMvc.perform(get("/api/secret/get")
+                .param("secretKey", "demo_db_password")
+                .header("X-Staff-No", "test-user"));
+        mockMvc.perform(get("/api/secret/list")
+                .param("namespace", "dev")
+                .header("X-Staff-No", "test-user"));
+        org.junit.jupiter.api.Assertions.assertEquals(
+                2, callCounts.getOrDefault("recordAccess", 0).intValue(),
+                "get + list 各写一次访问日志");
+    }
+
+    @Test
     void shouldRateLimitOnExcessiveGet() throws Exception {
-        // GET 限制 60/min，模拟 65 次
-        for (int i = 0; i < 65; i++) {
-            int finalI = i;
+        // GET 限流 60/min, 同 IP(127.0.0.1) 连打 61 次应触发
+        for (int i = 0; i < 61; i++) {
             mockMvc.perform(get("/api/secret/get")
-                            .param("secretKey", "demo_db_password")
-                            .param("group", "demo")
-                            .param("namespace", "dev")
-                            .header("X-Staff-No", "flood-bot"))
-                    .andDo(result -> {
-                        // 第 61 次开始应被限流
-                        if (finalI >= 60) {
-                            // 不强断言避免脆弱；只 log
-                            System.out.println("Call " + finalI + " status = " + result.getResponse().getStatus());
-                        }
-                    });
+                    .param("secretKey", "demo_db_password")
+                    .param("group", "demo")
+                    .param("namespace", "dev")
+                    .header("X-Staff-No", "flood-bot"));
         }
-        // 最后再调一次应该被限流
         mockMvc.perform(get("/api/secret/get")
                         .param("secretKey", "demo_db_password")
                         .param("group", "demo")
                         .param("namespace", "dev")
                         .header("X-Staff-No", "flood-bot"))
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Rate limit")));
+                .andExpect(jsonPath("$.message").value(
+                        org.hamcrest.Matchers.containsString("Rate limit")));
     }
 }

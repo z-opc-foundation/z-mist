@@ -1,10 +1,13 @@
 package com.zifang.z.mist.admin.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretAccessLog;
 import com.zifang.z.mist.core.domain.mapper.ZMistSecretAccessLogMapper;
+import com.zifang.z.mist.admin.api.response.AccessLogResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +33,7 @@ import java.util.Map;
  * </ul>
  */
 @Tag(name = "访问日志(FEATURE026)")
-@RestController
+@RestController("zMistAccessLogController")
 @RequestMapping("/api/log")
 public class AccessLogController {
 
@@ -48,6 +52,7 @@ public class AccessLogController {
             @RequestParam(required = false) Integer success,
             @RequestParam(required = false) String startTime,
             @RequestParam(required = false) String endTime) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<ZMistSecretAccessLog> page =
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(current, size);
@@ -82,28 +87,38 @@ public class AccessLogController {
     @Operation(summary = "查询最近 N 条日志")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/recent")
-    public Map<String, Object> recent(@RequestParam(defaultValue = "10") int limit) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<List<AccessLogResp>> recent(@RequestParam(defaultValue = "10") int limit) {
+        Result<List<AccessLogResp>> result = new Result<>();
         LambdaQueryWrapper<ZMistSecretAccessLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByDesc(ZMistSecretAccessLog::getGmtCreate).last("LIMIT " + limit);
         List<ZMistSecretAccessLog> logs = accessLogMapper.selectList(wrapper);
-        result.put("success", true);
-        result.put("data", logs);
+        result.setSuccess(true);
+        result.setData(toRespList(logs));
         return result;
     }
 
     @Operation(summary = "查询失败日志")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/failed")
-    public Map<String, Object> failed(@RequestParam(defaultValue = "50") int limit) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<List<AccessLogResp>> failed(@RequestParam(defaultValue = "50") int limit) {
+        Result<List<AccessLogResp>> result = new Result<>();
         LambdaQueryWrapper<ZMistSecretAccessLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ZMistSecretAccessLog::getSuccess, false)
                 .orderByDesc(ZMistSecretAccessLog::getGmtCreate)
                 .last("LIMIT " + limit);
         List<ZMistSecretAccessLog> logs = accessLogMapper.selectList(wrapper);
-        result.put("success", true);
-        result.put("data", logs);
+        result.setSuccess(true);
+        result.setData(toRespList(logs));
         return result;
+    }
+
+    private List<AccessLogResp> toRespList(List<ZMistSecretAccessLog> logs) {
+        List<AccessLogResp> respList = new ArrayList<>(logs.size());
+        for (ZMistSecretAccessLog log : logs) {
+            AccessLogResp resp = new AccessLogResp();
+            BeanUtils.copyProperties(log, resp);
+            respList.add(resp);
+        }
+        return respList;
     }
 }

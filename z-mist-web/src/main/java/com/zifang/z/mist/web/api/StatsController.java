@@ -33,7 +33,7 @@ import java.util.*;
  * </ul>
  */
 @Tag(name = "数据看板(FEATURE026)")
-@RestController
+@RestController("zMistStatsController")
 @RequestMapping("/api/stats")
 public class StatsController {
 
@@ -50,6 +50,7 @@ public class StatsController {
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/overview")
     public Map<String, Object> overview() {
+        // 不规则聚合输出(自定义看板指标), 保持原状
         Map<String, Object> result = new HashMap<>();
         // 总密钥数
         long total = secretInfoMapper.selectCount(null);
@@ -80,6 +81,7 @@ public class StatsController {
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/daily")
     public Map<String, Object> daily(@RequestParam(defaultValue = "7") int days) {
+        // 不规则聚合输出(自定义序列行), 保持原状
         Map<String, Object> result = new HashMap<>();
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(days - 1L);
@@ -112,6 +114,7 @@ public class StatsController {
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/top-secrets")
     public Map<String, Object> topSecrets(@RequestParam(defaultValue = "10") int limit) {
+        // 不规则聚合输出(自定义聚合行), 保持原状
         Map<String, Object> result = new HashMap<>();
         // 用 access_log 实时聚合:GROUP BY secret_key
         // MyBatis-Plus 简单做法: 取最近 1000 条日志后内存聚合
@@ -147,6 +150,7 @@ public class StatsController {
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/expiring")
     public Map<String, Object> expiring() {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime sevenDaysLater = now.plusDays(7);

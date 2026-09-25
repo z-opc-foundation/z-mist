@@ -14,24 +14,35 @@ spring:
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
-  datasource:
-    type: com.alibaba.druid.pool.DruidDataSource
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/dev}
-    username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:}    # ✅ 必须从环境变量读, 严禁明文
-    druid:
-      initial-size: 5
-      min-idle: 5
-      max-active: 20
-      max-wait: 60000
+  # MistModuleDataSource (ModuleDataSourceTemplate) 只读 z.base.db.mist.*,
+  # spring.datasource 是死配置且会诱导 spring/druid 自动装配抢跑注册第二个 DataSource,
+  # 一律排除 (与 z-task 标准对齐, 见 lead/005_技术架构/007 SOP 步骤 3)
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceAutoConfigure
+      - com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
 
-mybatis-plus:
-  mapper-locations: classpath*:mapper/**/*.xml
-  type-aliases-package: io.github.yuku123.z.mist.core.domain.entity
-  configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.log4j2.Log4j2Impl
+# 数据源走 ModuleDataSourceTemplate 模板 (buildDataSource(env, "mist")),
+# 无 XML mapper 且 mapUnderscoreToCamelCase 为 MybatisConfiguration 默认 true,
+# 因此原 mybatis-plus.* 自动配置块不再需要 (yml 该段已删除)
+z:
+  base:
+    db:
+      mist:
+        host: ${Z_MIST_DB_HOST:127.0.0.1}
+        port: ${Z_MIST_DB_PORT:3306}
+        database: ${Z_MIST_DB_NAME:z_mist}
+        username: ${Z_MIST_DB_USER:root}
+        password: ${Z_MIST_DB_PASSWORD:}
+        initial-size: 5
+        min-idle: 5
+        max-active: 20
+        max-wait: 60000
 
 logging:
   level:

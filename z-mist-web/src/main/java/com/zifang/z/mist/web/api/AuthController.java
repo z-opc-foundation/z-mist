@@ -1,5 +1,8 @@
 package com.zifang.z.mist.web.api;
 
+import com.zifang.z.mist.common.Result;
+import com.zifang.z.mist.web.api.request.LoginRequest;
+import com.zifang.z.mist.web.api.response.LoginResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -14,8 +17,6 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -35,7 +36,7 @@ import java.util.UUID;
  * </ul>
  */
 @Tag(name = "本地认证(FEATURE026)")
-@RestController
+@RestController("zMistAuthController")
 @RequestMapping("/api/auth")
 public class AuthController {
 
@@ -47,11 +48,11 @@ public class AuthController {
 
     @Operation(summary = "登录获取 token")
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody LoginRequest req, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<LoginResp> login(@RequestBody LoginRequest req, HttpServletRequest request) {
+        Result<LoginResp> result = new Result<>();
         if (req == null || req.username == null || req.password == null) {
-            result.put("success", false);
-            result.put("message", "username and password required");
+            result.setSuccess(false);
+            result.setMessage("username and password required");
             return result;
         }
         String ip = currentIp(request);
@@ -62,8 +63,8 @@ public class AuthController {
             java.util.concurrent.atomic.AtomicInteger attempts = LOGIN_ATTEMPTS.computeIfAbsent(ip,
                     k -> new java.util.concurrent.atomic.AtomicInteger(0));
             if (attempts.get() >= 5) {
-                result.put("success", false);
-                result.put("message", "登录尝试次数过多，请稍后再试(5次/分钟)");
+                result.setSuccess(false);
+                result.setMessage("登录尝试次数过多，请稍后再试(5次/分钟)");
                 return result;
             }
 
@@ -73,43 +74,39 @@ public class AuthController {
                     ps.setString(1, req.username);
                     try (ResultSet rs = ps.executeQuery()) {
                         if (!rs.next()) {
-                            result.put("success", false);
-                            result.put("message", "用户不存在");
+                            result.setSuccess(false);
+                            result.setMessage("用户不存在");
                             errMsg = "user_not_found";
                             return result;
                         }
                         String dbHash = rs.getString("password");
                         Integer enabled = rs.getInt("enabled");
                         if (enabled == null || enabled != 1) {
-                            result.put("success", false);
-                            result.put("message", "账号已禁用");
+                            result.setSuccess(false);
+                            result.setMessage("账号已禁用");
                             errMsg = "account_disabled";
                             return result;
                         }
                         if (!BCrypt.checkpw(req.password, dbHash)) {
                             attempts.incrementAndGet();
-                            result.put("success", false);
-                            result.put("message", "密码错误");
+                            result.setSuccess(false);
+                            result.setMessage("密码错误");
                             errMsg = "password_wrong";
                             return result;
                         }
                         // 成功: 清除失败计数
                         attempts.set(0);
                         String token = UUID.randomUUID().toString().replace("-", "");
-                        result.put("success", true);
-                        Map<String, Object> data = new HashMap<>();
-                        data.put("token", token);
-                        data.put("username", req.username);
-                        data.put("role", "ROLE_ADMIN");
-                        result.put("data", data);
+                        result.setSuccess(true);
+                        result.setData(new LoginResp(token, req.username, "ROLE_ADMIN"));
                         success = true;
                         return result;
                     }
                 }
             }
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", "登录失败: " + e.getMessage());
+            result.setSuccess(false);
+            result.setMessage("登录失败: " + e.getMessage());
             errMsg = e.getMessage();
             return result;
         } finally {
@@ -120,10 +117,10 @@ public class AuthController {
 
     @Operation(summary = "登出(仅前端清 token,无状态)")
     @PostMapping("/logout")
-    public Map<String, Object> logout(HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("message", "已登出");
+    public Result<Void> logout(HttpServletRequest request) {
+        Result<Void> result = new Result<>();
+        result.setSuccess(true);
+        result.setMessage("已登出");
         // FEATURE065: 登出审计
         writeLog(currentOperator(request), "LOGOUT", request, true, null);
         return result;
@@ -165,10 +162,5 @@ public class AuthController {
             return xff.split(",")[0].trim();
         }
         return request.getRemoteAddr();
-    }
-
-    public static class LoginRequest {
-        public String username;
-        public String password;
     }
 }

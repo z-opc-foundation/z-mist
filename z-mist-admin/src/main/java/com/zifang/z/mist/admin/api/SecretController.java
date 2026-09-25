@@ -1,10 +1,14 @@
 package com.zifang.z.mist.admin.api;
 
 import com.zifang.z.mist.common.Constance;
+import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
+import com.zifang.z.mist.admin.api.request.SecretReq;
+import com.zifang.z.mist.admin.api.response.SecretResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -36,7 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * FEATURE022 增强：@PreAuthorize 权限注解 + 简单内存限流（防爆破）。
  */
 @Tag(name = "密钥管理")
-@RestController
+@RestController("zMistSecretController")
 @RequestMapping("/api/secret")
 public class SecretController {
 
@@ -85,11 +89,13 @@ public class SecretController {
     @Operation(summary = "保存密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping
-    public Map<String, Object> saveSecret(@RequestBody ZMistSecretInfo secret, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<SecretResp> saveSecret(@RequestBody SecretReq secretReq, HttpServletRequest request) {
+        ZMistSecretInfo secret = new ZMistSecretInfo();
+        BeanUtils.copyProperties(secretReq, secret);
+        Result<SecretResp> result = new Result<>();
         if (!rateLimit(putCounters, currentIp(request), PUT_PER_MIN)) {
-            result.put("success", false);
-            result.put("message", "Rate limit exceeded (PUT limit " + PUT_PER_MIN + "/min)");
+            result.setSuccess(false);
+            result.setMessage("Rate limit exceeded (PUT limit " + PUT_PER_MIN + "/min)");
             secretService.recordAccess(secret.getSecretKey(), secret.getGroup(), secret.getNamespace(),
                     "PUT", currentOperator(request), currentIp(request), false, "rate_limit");
             return result;
@@ -112,12 +118,12 @@ public class SecretController {
             }
 
             ZMistSecretInfo saved = secretService.saveSecret(secret);
-            result.put("success", true);
-            result.put("data", saved);
+            result.setSuccess(true);
+            result.setData(saved == null ? null : toResp(saved));
             success = true;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errorMsg = e.getMessage();
         } finally {
             // FEATURE021: 写访问日志
@@ -147,11 +153,13 @@ public class SecretController {
     @Operation(summary = "更新密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PutMapping
-    public Map<String, Object> updateSecret(@RequestBody ZMistSecretInfo secret, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<SecretResp> updateSecret(@RequestBody SecretReq secretReq, HttpServletRequest request) {
+        ZMistSecretInfo secret = new ZMistSecretInfo();
+        BeanUtils.copyProperties(secretReq, secret);
+        Result<SecretResp> result = new Result<>();
         if (!rateLimit(putCounters, currentIp(request), PUT_PER_MIN)) {
-            result.put("success", false);
-            result.put("message", "Rate limit exceeded");
+            result.setSuccess(false);
+            result.setMessage("Rate limit exceeded");
             secretService.recordAccess(secret.getSecretKey(), secret.getGroup(), secret.getNamespace(),
                     "PUT", currentOperator(request), currentIp(request), false, "rate_limit");
             return result;
@@ -160,12 +168,12 @@ public class SecretController {
         String errorMsg = null;
         try {
             ZMistSecretInfo updated = secretService.updateSecret(secret);
-            result.put("success", true);
-            result.put("data", updated);
+            result.setSuccess(true);
+            result.setData(updated == null ? null : toResp(updated));
             success = true;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errorMsg = e.getMessage();
         } finally {
             secretService.recordAccess(
@@ -194,15 +202,15 @@ public class SecretController {
     @Operation(summary = "删除密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping
-    public Map<String, Object> deleteSecret(
+    public Result<Void> deleteSecret(
             @RequestParam String secretKey,
             @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
             @RequestParam(required = false, defaultValue = "") String namespace,
             HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+        Result<Void> result = new Result<>();
         if (!rateLimit(deleteCounters, currentIp(request), DELETE_PER_MIN)) {
-            result.put("success", false);
-            result.put("message", "Rate limit exceeded");
+            result.setSuccess(false);
+            result.setMessage("Rate limit exceeded");
             secretService.recordAccess(secretKey, group, namespace,
                     "DELETE", currentOperator(request), currentIp(request), false, "rate_limit");
             return result;
@@ -211,12 +219,12 @@ public class SecretController {
         String errorMsg = null;
         try {
             boolean deleted = secretService.deleteSecret(secretKey, group, namespace);
-            result.put("success", deleted);
-            result.put("message", deleted ? "删除成功" : "删除失败");
+            result.setSuccess(deleted);
+            result.setMessage(deleted ? "删除成功" : "删除失败");
             success = deleted;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errorMsg = e.getMessage();
         } finally {
             secretService.recordAccess(
@@ -243,15 +251,15 @@ public class SecretController {
     @Operation(summary = "获取密钥详情")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/get")
-    public Map<String, Object> getSecret(
+    public Result<SecretResp> getSecret(
             @RequestParam String secretKey,
             @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
             @RequestParam(required = false, defaultValue = "") String namespace,
             HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+        Result<SecretResp> result = new Result<>();
         if (!rateLimit(getCounters, currentIp(request), GET_PER_MIN)) {
-            result.put("success", false);
-            result.put("message", "Rate limit exceeded (GET limit " + GET_PER_MIN + "/min)");
+            result.setSuccess(false);
+            result.setMessage("Rate limit exceeded (GET limit " + GET_PER_MIN + "/min)");
             secretService.recordAccess(secretKey, group, namespace,
                     "GET", currentOperator(request), currentIp(request), false, "rate_limit");
             return result;
@@ -260,12 +268,12 @@ public class SecretController {
         String errorMsg = null;
         try {
             ZMistSecretInfo secret = secretService.getSecret(secretKey, group, namespace);
-            result.put("success", secret != null);
-            result.put("data", secret);
+            result.setSuccess(secret != null);
+            result.setData(secret == null ? null : toResp(secret));
             success = secret != null;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errorMsg = e.getMessage();
         } finally {
             secretService.recordAccess(
@@ -297,6 +305,7 @@ public class SecretController {
             @RequestParam(required = false) String appName,
             @RequestParam(required = false, defaultValue = "") String namespace,
             HttpServletRequest request) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         if (!rateLimit(getCounters, currentIp(request), GET_PER_MIN)) {
             result.put("success", false);
@@ -359,6 +368,12 @@ public class SecretController {
             return xff.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private SecretResp toResp(ZMistSecretInfo secret) {
+        SecretResp resp = new SecretResp();
+        BeanUtils.copyProperties(secret, resp);
+        return resp;
     }
 
     private static class WindowCounter {

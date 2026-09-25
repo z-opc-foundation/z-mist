@@ -1,10 +1,13 @@
 package com.zifang.z.mist.admin.api;
 
+import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretHistory;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
+import com.zifang.z.mist.admin.api.response.SecretResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +35,7 @@ import java.util.Map;
  * </ul>
  */
 @Tag(name = "密钥操作(FEATURE026)")
-@RestController
+@RestController("zMistSecretOperationController")
 @RequestMapping("/api/secret")
 public class SecretOperationController {
 
@@ -42,23 +45,23 @@ public class SecretOperationController {
     @Operation(summary = "获取密钥明文")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/plain")
-    public Map<String, Object> getPlain(
+    public Result<String> getPlain(
             @RequestParam String secretKey,
             @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
             @RequestParam(required = false, defaultValue = "") String namespace,
             @RequestParam(required = false) String cipherText,
             HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+        Result<String> result = new Result<>();
         boolean success = false;
         String errMsg = null;
         try {
             String plain = secretService.decryptToPlain(secretKey, group, namespace, cipherText);
-            result.put("success", true);
-            result.put("data", plain);
+            result.setSuccess(true);
+            result.setData(plain);
             success = true;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errMsg = e.getMessage();
         } finally {
             secretService.recordAccess(secretKey, group, namespace, "GET_PLAIN",
@@ -75,6 +78,7 @@ public class SecretOperationController {
             @RequestParam(required = false) String group,
             @RequestParam(required = false, defaultValue = "") String namespace,
             HttpServletRequest request) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         boolean success = false;
         String errMsg = null;
@@ -103,6 +107,7 @@ public class SecretOperationController {
             @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
             @RequestParam(required = false, defaultValue = "") String namespace,
             HttpServletRequest request) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         boolean success = false;
         String errMsg = null;
@@ -126,20 +131,20 @@ public class SecretOperationController {
     @Operation(summary = "回滚到指定历史版本")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/rollback")
-    public Map<String, Object> rollback(
+    public Result<SecretResp> rollback(
             @RequestParam Long historyId,
             HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+        Result<SecretResp> result = new Result<>();
         boolean success = false;
         String errMsg = null;
         try {
             ZMistSecretInfo secret = secretService.rollbackToHistory(historyId);
-            result.put("success", true);
-            result.put("data", secret);
+            result.setSuccess(true);
+            result.setData(secret == null ? null : toResp(secret));
             success = true;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errMsg = e.getMessage();
         } finally {
             secretService.recordAccess(null, null, null, "ROLLBACK",
@@ -151,23 +156,23 @@ public class SecretOperationController {
     @Operation(summary = "手动触发密钥轮换")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/rotate")
-    public Map<String, Object> rotate(
+    public Result<SecretResp> rotate(
             @RequestParam String secretKey,
             @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
             @RequestParam(required = false, defaultValue = "") String namespace,
             @RequestParam(required = false, defaultValue = "32") Integer newValueLength,
             HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+        Result<SecretResp> result = new Result<>();
         boolean success = false;
         String errMsg = null;
         try {
             ZMistSecretInfo secret = secretService.rotateNow(secretKey, group, namespace, newValueLength);
-            result.put("success", true);
-            result.put("data", secret);
+            result.setSuccess(true);
+            result.setData(secret == null ? null : toResp(secret));
             success = true;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errMsg = e.getMessage();
         } finally {
             secretService.recordAccess(secretKey, group, namespace, "ROTATE",
@@ -185,6 +190,7 @@ public class SecretOperationController {
             @RequestParam(required = false, defaultValue = "") String namespace,
             @RequestParam(required = false, defaultValue = "3600") int ttlSeconds,
             HttpServletRequest request) {
+        // 不规则聚合输出(ttlSeconds 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         boolean success = false;
         String errMsg = null;
@@ -209,18 +215,18 @@ public class SecretOperationController {
     @Operation(summary = "读取动态密钥明文")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/dynamic/{dynKey}")
-    public Map<String, Object> readDynamic(@PathVariable String dynKey, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<String> readDynamic(@PathVariable String dynKey, HttpServletRequest request) {
+        Result<String> result = new Result<>();
         boolean success = false;
         String errMsg = null;
         try {
             String plain = secretService.readDynamic(dynKey);
-            result.put("success", true);
-            result.put("data", plain);
+            result.setSuccess(true);
+            result.setData(plain);
             success = true;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errMsg = e.getMessage();
         } finally {
             secretService.recordAccess(null, null, null, "DYN_READ",
@@ -232,18 +238,18 @@ public class SecretOperationController {
     @Operation(summary = "主动撤销动态密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/dynamic/{dynKey}")
-    public Map<String, Object> revokeDynamic(@PathVariable String dynKey, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<Void> revokeDynamic(@PathVariable String dynKey, HttpServletRequest request) {
+        Result<Void> result = new Result<>();
         boolean success = false;
         String errMsg = null;
         try {
             boolean revoked = secretService.revokeDynamic(dynKey);
-            result.put("success", revoked);
-            result.put("message", revoked ? "撤销成功" : "撤销失败(可能不存在或已撤销)");
+            result.setSuccess(revoked);
+            result.setMessage(revoked ? "撤销成功" : "撤销失败(可能不存在或已撤销)");
             success = revoked;
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
             errMsg = e.getMessage();
         } finally {
             secretService.recordAccess(null, null, null, "DYN_REVOKE",
@@ -266,5 +272,11 @@ public class SecretOperationController {
             return xff.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private SecretResp toResp(ZMistSecretInfo secret) {
+        SecretResp resp = new SecretResp();
+        BeanUtils.copyProperties(secret, resp);
+        return resp;
     }
 }

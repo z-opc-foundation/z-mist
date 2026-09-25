@@ -2,11 +2,16 @@ package com.zifang.z.mist.web.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistAppInfo;
 import com.zifang.z.mist.core.domain.mapper.ZMistAppInfoMapper;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
+import com.zifang.z.mist.web.api.request.AppReq;
+import com.zifang.z.mist.web.api.response.AppResp;
+import com.zifang.z.mist.web.api.response.ResetSecretResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -35,7 +40,7 @@ import java.util.Map;
  * </ul>
  */
 @Tag(name = "应用管理(FEATURE026)")
-@RestController
+@RestController("zMistAppController")
 @RequestMapping("/api/app")
 public class AppController {
 
@@ -48,11 +53,13 @@ public class AppController {
     @Operation(summary = "创建应用")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping
-    public Map<String, Object> create(@RequestBody ZMistAppInfo body, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<AppResp> create(@RequestBody AppReq appReq, HttpServletRequest request) {
+        ZMistAppInfo body = new ZMistAppInfo();
+        BeanUtils.copyProperties(appReq, body);
+        Result<AppResp> result = new Result<>();
         if (body.getAppName() == null || body.getAppName().isEmpty()) {
-            result.put("success", false);
-            result.put("message", "appName 必填");
+            result.setSuccess(false);
+            result.setMessage("appName 必填");
             return result;
         }
         if (body.getAppSecret() == null || body.getAppSecret().isEmpty()) {
@@ -71,8 +78,8 @@ public class AppController {
         body.setGmtCreate(now);
         body.setGmtModified(now);
         appMapper.insert(body);
-        result.put("success", true);
-        result.put("data", body);
+        result.setSuccess(true);
+        result.setData(toResp(body));
         // FEATURE065: 审计
         secretService.recordAccess("APP:" + body.getAppName(), null, null,
                 "APP_CREATE", currentOperator(request), currentIp(request), true, null);
@@ -82,13 +89,16 @@ public class AppController {
     @Operation(summary = "更新应用")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PutMapping("/{id}")
-    public Map<String, Object> update(@PathVariable Long id, @RequestBody ZMistAppInfo body, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<AppResp> update(@PathVariable Long id, @RequestBody AppReq appReq, HttpServletRequest request) {
+        ZMistAppInfo body = new ZMistAppInfo();
+        BeanUtils.copyProperties(appReq, body);
+        Result<AppResp> result = new Result<>();
         body.setId(id);
         body.setGmtModified(LocalDateTime.now());
         appMapper.updateById(body);
-        result.put("success", true);
-        result.put("data", appMapper.selectById(id));
+        result.setSuccess(true);
+        ZMistAppInfo saved = appMapper.selectById(id);
+        result.setData(saved == null ? null : toResp(saved));
         // FEATURE065: 审计
         secretService.recordAccess("APP:" + id, null, null,
                 "APP_UPDATE", currentOperator(request), currentIp(request), true, null);
@@ -98,12 +108,12 @@ public class AppController {
     @Operation(summary = "删除应用")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/{id}")
-    public Map<String, Object> delete(@PathVariable Long id, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        Result<Void> result = new Result<>();
         ZMistAppInfo app = appMapper.selectById(id);
         int rows = appMapper.deleteById(id);
-        result.put("success", rows > 0);
-        result.put("message", rows > 0 ? "删除成功" : "应用不存在");
+        result.setSuccess(rows > 0);
+        result.setMessage(rows > 0 ? "删除成功" : "应用不存在");
         // FEATURE065: 审计
         if (app != null) {
             secretService.recordAccess("APP:" + app.getAppName(), null, null,
@@ -121,6 +131,7 @@ public class AppController {
             @RequestParam(defaultValue = "20") long size,
             @RequestParam(required = false) String appName,
             @RequestParam(required = false) String namespace) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         Page<ZMistAppInfo> page = new Page<>(current, size);
         LambdaQueryWrapper<ZMistAppInfo> wrapper = new LambdaQueryWrapper<>();
@@ -141,36 +152,32 @@ public class AppController {
     @Operation(summary = "查询应用详情")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/{id}")
-    public Map<String, Object> get(@PathVariable Long id) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<AppResp> get(@PathVariable Long id) {
+        Result<AppResp> result = new Result<>();
         ZMistAppInfo app = appMapper.selectById(id);
-        result.put("success", app != null);
-        result.put("data", app);
+        result.setSuccess(app != null);
+        result.setData(app == null ? null : toResp(app));
         return result;
     }
 
     @Operation(summary = "重置 appSecret")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/{id}/reset-secret")
-    public Map<String, Object> resetSecret(@PathVariable Long id, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<ResetSecretResp> resetSecret(@PathVariable Long id, HttpServletRequest request) {
+        Result<ResetSecretResp> result = new Result<>();
         ZMistAppInfo app = appMapper.selectById(id);
         if (app == null) {
-            result.put("success", false);
-            result.put("message", "应用不存在");
+            result.setSuccess(false);
+            result.setMessage("应用不存在");
             return result;
         }
         String newSecret = generateAppSecret(32);
         app.setAppSecret(newSecret);
         app.setGmtModified(LocalDateTime.now());
         appMapper.updateById(app);
-        result.put("success", true);
-        Map<String, Object> data = new HashMap<>();
-        data.put("id", id);
-        data.put("appName", app.getAppName());
-        data.put("newSecret", newSecret);
-        result.put("data", data);
-        result.put("message", "新 secret 仅返回一次,请妥善保存");
+        result.setSuccess(true);
+        result.setData(new ResetSecretResp(id, app.getAppName(), newSecret));
+        result.setMessage("新 secret 仅返回一次,请妥善保存");
         // FEATURE065: 审计
         secretService.recordAccess("APP:" + app.getAppName(), null, null,
                 "APP_RESET_SECRET", currentOperator(request), currentIp(request), true, null);
@@ -197,5 +204,11 @@ public class AppController {
             return xff.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private AppResp toResp(ZMistAppInfo app) {
+        AppResp resp = new AppResp();
+        BeanUtils.copyProperties(app, resp);
+        return resp;
     }
 }

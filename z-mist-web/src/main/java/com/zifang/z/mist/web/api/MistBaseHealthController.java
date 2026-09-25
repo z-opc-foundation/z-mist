@@ -18,7 +18,7 @@ import java.util.Map;
  *   <li>GET /api/mist/health — 返回服务健康状态</li>
  * </ul>
  */
-@RestController
+@RestController("zMistMistBaseHealthController")
 public class MistBaseHealthController {
 
     /**
@@ -28,6 +28,7 @@ public class MistBaseHealthController {
      */
     @GetMapping("/api/mist/health")
     public Map<String, Object> health() {
+        // 不规则聚合输出(无 success/message/data 信封的自定义 health 输出), 保持原状
         Map<String, Object> result = new HashMap<>();
         result.put("status", "UP");
         result.put("service", "z-mist-admin");

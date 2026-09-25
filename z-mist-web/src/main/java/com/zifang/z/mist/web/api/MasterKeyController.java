@@ -1,16 +1,21 @@
 package com.zifang.z.mist.web.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistMasterKeyHistory;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
 import com.zifang.z.mist.core.domain.mapper.ZMistMasterKeyHistoryMapper;
 import com.zifang.z.mist.core.domain.mapper.ZMistSecretInfoMapper;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
 import com.zifang.z.mist.core.domain.service.impl.ZMistSecretServiceImpl;
+import com.zifang.z.mist.web.api.request.SecretReq;
+import com.zifang.z.mist.web.api.response.EnvelopeResp;
+import com.zifang.z.mist.web.api.response.MasterKeyHistoryResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.DigestUtils;
@@ -38,7 +43,7 @@ import java.util.Map;
  * </ul>
  */
 @Tag(name = "主密钥+批量(FEATURE026)")
-@RestController
+@RestController("zMistMasterKeyController")
 @RequestMapping("/api")
 public class MasterKeyController {
 
@@ -57,12 +62,12 @@ public class MasterKeyController {
     @Operation(summary = "查看主密钥历史")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/master-key/list")
-    public Map<String, Object> listMasterKeys() {
-        Map<String, Object> result = new HashMap<>();
+    public Result<List<MasterKeyHistoryResp>> listMasterKeys() {
+        Result<List<MasterKeyHistoryResp>> result = new Result<>();
         List<ZMistMasterKeyHistory> list = masterKeyMapper.selectList(
                 new LambdaQueryWrapper<ZMistMasterKeyHistory>().orderByDesc(ZMistMasterKeyHistory::getId));
-        result.put("success", true);
-        result.put("data", list);
+        result.setSuccess(true);
+        result.setData(toRespList(list));
         return result;
     }
 
@@ -70,6 +75,7 @@ public class MasterKeyController {
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/master-key/rotate")
     public Map<String, Object> rotate(@RequestParam(required = false) String newMasterKey) {
+        // 不规则聚合输出(newVersion/newMd5/migratedSecrets 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         try {
             // 1) 生成新主密钥 (32 字节十六进制, 64 字符)
@@ -156,8 +162,8 @@ public class MasterKeyController {
     @Operation(summary = "信封加密(主密钥+数据密钥)")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/master-key/envelope")
-    public Map<String, Object> envelope(@RequestParam String plainText) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<EnvelopeResp> envelope(@RequestParam String plainText) {
+        Result<EnvelopeResp> result = new Result<>();
         try {
             // 1) 生成数据密钥(32 字节 Base64)
             byte[] dataKeyBytes = new byte[32];
@@ -172,15 +178,11 @@ public class MasterKeyController {
             cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, dataKeySpec);
             String cipherText = java.util.Base64.getEncoder().encodeToString(
                     cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8)));
-            result.put("success", true);
-            Map<String, Object> data = new HashMap<>();
-            data.put("wrappedKey", wrappedKey);
-            data.put("cipherText", cipherText);
-            data.put("algorithm", "AES-256");
-            result.put("data", data);
+            result.setSuccess(true);
+            result.setData(new EnvelopeResp(wrappedKey, cipherText, "AES-256"));
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
         }
         return result;
     }
@@ -188,10 +190,10 @@ public class MasterKeyController {
     @Operation(summary = "解封(主密钥解数据密钥 + 数据密钥解业务数据)")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @PostMapping("/master-key/unenvelope")
-    public Map<String, Object> unenvelope(
+    public Result<String> unenvelope(
             @RequestParam String wrappedKey,
             @RequestParam String cipherText) {
-        Map<String, Object> result = new HashMap<>();
+        Result<String> result = new Result<>();
         try {
             String dataKey = secretService.decryptValue(wrappedKey, "AES");
             byte[] dataKeyBytes = java.util.Base64.getDecoder().decode(dataKey);
@@ -201,11 +203,11 @@ public class MasterKeyController {
             cipher.init(javax.crypto.Cipher.DECRYPT_MODE, dataKeySpec);
             String plain = new String(cipher.doFinal(
                     java.util.Base64.getDecoder().decode(cipherText)), StandardCharsets.UTF_8);
-            result.put("success", true);
-            result.put("data", plain);
+            result.setSuccess(true);
+            result.setData(plain);
         } catch (Exception e) {
-            result.put("success", false);
-            result.put("message", e.getMessage());
+            result.setSuccess(false);
+            result.setMessage(e.getMessage());
         }
         return result;
     }
@@ -213,17 +215,20 @@ public class MasterKeyController {
     @Operation(summary = "批量导入密钥(JSON 数组)")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/bulk/import")
-    public Map<String, Object> bulkImport(@RequestBody List<ZMistSecretInfo> secrets) {
+    public Map<String, Object> bulkImport(@RequestBody List<SecretReq> secrets) {
+        // 不规则聚合输出(total/imported/failed/errors 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         int success = 0, failed = 0;
         List<String> errors = new ArrayList<>();
-        for (ZMistSecretInfo s : secrets) {
+        for (SecretReq secretReq : secrets) {
             try {
-                secretService.saveSecret(s);
+                ZMistSecretInfo entity = new ZMistSecretInfo();
+                BeanUtils.copyProperties(secretReq, entity);
+                secretService.saveSecret(entity);
                 success++;
             } catch (Exception e) {
                 failed++;
-                errors.add(s.getSecretKey() + ": " + e.getMessage());
+                errors.add(secretReq.getSecretKey() + ": " + e.getMessage());
             }
         }
         result.put("success", failed == 0);
@@ -242,6 +247,7 @@ public class MasterKeyController {
     public Map<String, Object> bulkExport(
             @RequestParam(required = false) String group,
             @RequestParam(required = false, defaultValue = "") String namespace) {
+        // 不规则聚合输出(total/exportedAt/note 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         List<ZMistSecretInfo> list = secretService.listSecrets(group, null, namespace);
         result.put("success", true);
@@ -260,5 +266,15 @@ public class MasterKeyController {
             sb.append(String.format("%02x", b));
         }
         return sb.toString();
+    }
+
+    private List<MasterKeyHistoryResp> toRespList(List<ZMistMasterKeyHistory> list) {
+        List<MasterKeyHistoryResp> respList = new ArrayList<>(list.size());
+        for (ZMistMasterKeyHistory history : list) {
+            MasterKeyHistoryResp resp = new MasterKeyHistoryResp();
+            BeanUtils.copyProperties(history, resp);
+            respList.add(resp);
+        }
+        return respList;
     }
 }

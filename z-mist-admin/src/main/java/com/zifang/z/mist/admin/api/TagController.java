@@ -1,11 +1,15 @@
 package com.zifang.z.mist.admin.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretTag;
 import com.zifang.z.mist.core.domain.mapper.ZMistSecretTagMapper;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
+import com.zifang.z.mist.admin.api.request.TagReq;
+import com.zifang.z.mist.admin.api.response.TagResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +36,7 @@ import java.util.Map;
  * </ul>
  */
 @Tag(name = "标签管理(FEATURE026)")
-@RestController
+@RestController("zMistTagController")
 @RequestMapping("/api/tag")
 public class TagController {
 
@@ -45,11 +49,13 @@ public class TagController {
     @Operation(summary = "添加标签(upsert)")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping
-    public Map<String, Object> add(@RequestBody ZMistSecretTag body, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<TagResp> add(@RequestBody TagReq tagReq, HttpServletRequest request) {
+        ZMistSecretTag body = new ZMistSecretTag();
+        BeanUtils.copyProperties(tagReq, body);
+        Result<TagResp> result = new Result<>();
         if (body.getSecretKey() == null || body.getTagKey() == null) {
-            result.put("success", false);
-            result.put("message", "secretKey 与 tagKey 必填");
+            result.setSuccess(false);
+            result.setMessage("secretKey 与 tagKey 必填");
             return result;
         }
         if (body.getGroup() == null) {
@@ -70,14 +76,14 @@ public class TagController {
             existing.setTagValue(body.getTagValue());
             existing.setGmtModified(now);
             tagMapper.updateById(existing);
-            result.put("data", existing);
+            result.setData(toResp(existing));
         } else {
             body.setGmtCreate(now);
             body.setGmtModified(now);
             tagMapper.insert(body);
-            result.put("data", body);
+            result.setData(toResp(body));
         }
-        result.put("success", true);
+        result.setSuccess(true);
         // FEATURE065: 审计
         secretService.recordAccess(body.getSecretKey(), body.getGroup(), body.getNamespace(),
                 "TAG_ADD", currentOperator(request), currentIp(request), true,
@@ -88,11 +94,11 @@ public class TagController {
     @Operation(summary = "删除标签")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/{id}")
-    public Map<String, Object> delete(@PathVariable Long id, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        Result<Void> result = new Result<>();
         ZMistSecretTag tag = tagMapper.selectById(id);
         int rows = tagMapper.deleteById(id);
-        result.put("success", rows > 0);
+        result.setSuccess(rows > 0);
         // FEATURE065: 审计
         if (tag != null) {
             secretService.recordAccess(tag.getSecretKey(), tag.getGroup(), tag.getNamespace(),
@@ -109,6 +115,7 @@ public class TagController {
             @RequestParam String secretKey,
             @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
             @RequestParam(required = false, defaultValue = "") String namespace) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         LambdaQueryWrapper<ZMistSecretTag> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ZMistSecretTag::getSecretKey, secretKey)
@@ -127,6 +134,7 @@ public class TagController {
     public Map<String, Object> search(
             @RequestParam String tagKey,
             @RequestParam(required = false) String tagValue) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         LambdaQueryWrapper<ZMistSecretTag> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ZMistSecretTag::getTagKey, tagKey);
@@ -154,5 +162,11 @@ public class TagController {
             return xff.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private TagResp toResp(ZMistSecretTag tag) {
+        TagResp resp = new TagResp();
+        BeanUtils.copyProperties(tag, resp);
+        return resp;
     }
 }

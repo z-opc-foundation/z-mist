@@ -2,13 +2,17 @@ package com.zifang.z.mist.admin.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistRotationHistory;
 import com.zifang.z.mist.core.domain.entity.ZMistRotationPolicy;
 import com.zifang.z.mist.core.domain.mapper.ZMistRotationHistoryMapper;
 import com.zifang.z.mist.core.domain.mapper.ZMistRotationPolicyMapper;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
+import com.zifang.z.mist.admin.api.request.RotationPolicyReq;
+import com.zifang.z.mist.admin.api.response.RotationPolicyResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -36,7 +40,7 @@ import java.util.Map;
  * </ul>
  */
 @Tag(name = "轮换策略(FEATURE026)")
-@RestController
+@RestController("zMistRotationPolicyController")
 @RequestMapping("/api/rotation")
 public class RotationPolicyController {
 
@@ -52,11 +56,13 @@ public class RotationPolicyController {
     @Operation(summary = "创建轮换策略")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/policy")
-    public Map<String, Object> create(@RequestBody ZMistRotationPolicy body, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<RotationPolicyResp> create(@RequestBody RotationPolicyReq policyReq, HttpServletRequest request) {
+        ZMistRotationPolicy body = new ZMistRotationPolicy();
+        BeanUtils.copyProperties(policyReq, body);
+        Result<RotationPolicyResp> result = new Result<>();
         if (body.getSecretKey() == null || body.getCronExpression() == null) {
-            result.put("success", false);
-            result.put("message", "secretKey 与 cronExpression 必填");
+            result.setSuccess(false);
+            result.setMessage("secretKey 与 cronExpression 必填");
             return result;
         } else {
             if (body.getGroup() == null) {
@@ -78,8 +84,8 @@ public class RotationPolicyController {
             body.setGmtCreate(now);
             body.setGmtModified(now);
             policyMapper.insert(body);
-            result.put("success", true);
-            result.put("data", body);
+            result.setSuccess(true);
+            result.setData(toResp(body));
             // FEATURE065: 审计
             secretService.recordAccess(body.getSecretKey(), body.getGroup(), body.getNamespace(),
                     "ROTATION_CREATE", currentOperator(request), currentIp(request), true,
@@ -91,13 +97,17 @@ public class RotationPolicyController {
     @Operation(summary = "更新轮换策略")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PutMapping("/policy/{id}")
-    public Map<String, Object> update(@PathVariable Long id, @RequestBody ZMistRotationPolicy body, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<RotationPolicyResp> update(@PathVariable Long id, @RequestBody RotationPolicyReq policyReq,
+                                             HttpServletRequest request) {
+        ZMistRotationPolicy body = new ZMistRotationPolicy();
+        BeanUtils.copyProperties(policyReq, body);
+        Result<RotationPolicyResp> result = new Result<>();
         body.setId(id);
         body.setGmtModified(LocalDateTime.now());
         policyMapper.updateById(body);
-        result.put("success", true);
-        result.put("data", policyMapper.selectById(id));
+        result.setSuccess(true);
+        ZMistRotationPolicy saved = policyMapper.selectById(id);
+        result.setData(saved == null ? null : toResp(saved));
         // FEATURE065: 审计
         secretService.recordAccess(body.getSecretKey(), body.getGroup(), body.getNamespace(),
                 "ROTATION_UPDATE", currentOperator(request), currentIp(request), true, null);
@@ -107,11 +117,11 @@ public class RotationPolicyController {
     @Operation(summary = "删除轮换策略")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/policy/{id}")
-    public Map<String, Object> delete(@PathVariable Long id, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+        Result<Void> result = new Result<>();
         ZMistRotationPolicy policy = policyMapper.selectById(id);
         int rows = policyMapper.deleteById(id);
-        result.put("success", rows > 0);
+        result.setSuccess(rows > 0);
         // FEATURE065: 审计
         if (policy != null) {
             secretService.recordAccess(policy.getSecretKey(), policy.getGroup(), policy.getNamespace(),
@@ -128,6 +138,7 @@ public class RotationPolicyController {
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "20") long size,
             @RequestParam(required = false) String secretKey) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         Page<ZMistRotationPolicy> page = new Page<>(current, size);
         LambdaQueryWrapper<ZMistRotationPolicy> wrapper = new LambdaQueryWrapper<>();
@@ -145,12 +156,12 @@ public class RotationPolicyController {
     @Operation(summary = "立即触发轮换")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/policy/{id}/trigger")
-    public Map<String, Object> trigger(@PathVariable Long id, HttpServletRequest request) {
-        Map<String, Object> result = new HashMap<>();
+    public Result<Void> trigger(@PathVariable Long id, HttpServletRequest request) {
+        Result<Void> result = new Result<>();
         ZMistRotationPolicy policy = policyMapper.selectById(id);
         if (policy == null) {
-            result.put("success", false);
-            result.put("message", "策略不存在");
+            result.setSuccess(false);
+            result.setMessage("策略不存在");
             return result;
         } else {
             try {
@@ -171,8 +182,8 @@ public class RotationPolicyController {
                 policy.setLastRotationTime(LocalDateTime.now());
                 policy.setGmtModified(LocalDateTime.now());
                 policyMapper.updateById(policy);
-                result.put("success", true);
-                result.put("message", "触发成功");
+                result.setSuccess(true);
+                result.setMessage("触发成功");
                 // FEATURE065: 审计
                 secretService.recordAccess(policy.getSecretKey(), policy.getGroup(), policy.getNamespace(),
                         "ROTATION_TRIGGER", currentOperator(request), currentIp(request), true, null);
@@ -189,8 +200,8 @@ public class RotationPolicyController {
                 history.setErrorMessage(e.getMessage());
                 history.setGmtCreate(LocalDateTime.now());
                 historyMapper.insert(history);
-                result.put("success", false);
-                result.put("message", e.getMessage());
+                result.setSuccess(false);
+                result.setMessage(e.getMessage());
                 // FEATURE065: 审计
                 secretService.recordAccess(policy.getSecretKey(), policy.getGroup(), policy.getNamespace(),
                         "ROTATION_TRIGGER", currentOperator(request), currentIp(request), false, e.getMessage());
@@ -207,6 +218,7 @@ public class RotationPolicyController {
             @RequestParam(defaultValue = "20") long size,
             @RequestParam(required = false) String secretKey,
             @RequestParam(required = false) String triggerType) {
+        // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         Page<ZMistRotationHistory> page = new Page<>(current, size);
         LambdaQueryWrapper<ZMistRotationHistory> wrapper = new LambdaQueryWrapper<>();
@@ -240,5 +252,11 @@ public class RotationPolicyController {
         } else {
             return request.getRemoteAddr();
         }
+    }
+
+    private RotationPolicyResp toResp(ZMistRotationPolicy policy) {
+        RotationPolicyResp resp = new RotationPolicyResp();
+        BeanUtils.copyProperties(policy, resp);
+        return resp;
     }
 }

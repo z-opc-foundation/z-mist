@@ -1,58 +1,50 @@
 package com.zifang.z.mist.core.domain.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zifang.z.mist.common.Constance;
 import com.zifang.z.mist.core.domain.entity.*;
 import com.zifang.z.mist.core.domain.mapper.*;
+import com.zifang.z.mist.core.support.Proxies;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 /**
  * ZMistSecretServiceImpl 单元测试(FEATURE026).
  * <p>
  * 覆盖: AES / RSA 加密解密、EaaS、搜索、历史、回滚、轮换、动态密钥。
- * 用反射注入私有 mapper 字段,纯 mock,不依赖 Spring/数据库。
+ * 家法规范 (SOP 步骤 8): JDK 动态代理按方法名分发返回值 + 反射注入,
+ * 零 Mockito, 不依赖 Spring/数据库。times()/calls() 替代 verify/captor.
  */
 public class ZMistSecretServiceImplTest {
 
     private ZMistSecretServiceImpl service;
-    private ZMistSecretInfoMapper secretInfoMapper;
-    private ZMistSecretHistoryMapper secretHistoryMapper;
-    private ZMistSecretAccessLogMapper secretAccessLogMapper;
-    private ZMistSecretDynamicMapper secretDynamicMapper;
-    private ZMistRotationHistoryMapper rotationHistoryMapper;
+
+    private Proxies.Builder<ZMistSecretInfoMapper> secretInfo;
+    private Proxies.Builder<ZMistSecretHistoryMapper> secretHistory;
+    private Proxies.Builder<ZMistSecretAccessLogMapper> secretAccessLog;
+    private Proxies.Builder<ZMistSecretDynamicMapper> secretDynamic;
+    private Proxies.Builder<ZMistRotationHistoryMapper> rotationHistory;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         service = new ZMistSecretServiceImpl();
-        secretInfoMapper = mock(ZMistSecretInfoMapper.class);
-        secretHistoryMapper = mock(ZMistSecretHistoryMapper.class);
-        secretAccessLogMapper = mock(ZMistSecretAccessLogMapper.class);
-        secretDynamicMapper = mock(ZMistSecretDynamicMapper.class);
-        rotationHistoryMapper = mock(ZMistRotationHistoryMapper.class);
+        secretInfo = Proxies.of(ZMistSecretInfoMapper.class);
+        secretHistory = Proxies.of(ZMistSecretHistoryMapper.class);
+        secretAccessLog = Proxies.of(ZMistSecretAccessLogMapper.class);
+        secretDynamic = Proxies.of(ZMistSecretDynamicMapper.class);
+        rotationHistory = Proxies.of(ZMistRotationHistoryMapper.class);
 
-        setField("secretInfoMapper", secretInfoMapper);
-        setField("secretHistoryMapper", secretHistoryMapper);
-        setField("secretAccessLogMapper", secretAccessLogMapper);
-        setField("secretDynamicMapper", secretDynamicMapper);
-        setField("rotationHistoryMapper", rotationHistoryMapper);
-    }
-
-    private void setField(String name, Object value) throws Exception {
-        Field f = ZMistSecretServiceImpl.class.getDeclaredField(name);
-        f.setAccessible(true);
-        f.set(service, value);
+        Proxies.inject(service, "secretInfoMapper", secretInfo.build());
+        Proxies.inject(service, "secretHistoryMapper", secretHistory.build());
+        Proxies.inject(service, "secretAccessLogMapper", secretAccessLog.build());
+        Proxies.inject(service, "secretDynamicMapper", secretDynamic.build());
+        Proxies.inject(service, "rotationHistoryMapper", rotationHistory.build());
     }
 
     // ============ 加密 / 解密 ============
@@ -80,7 +72,7 @@ public class ZMistSecretServiceImplTest {
     void testEaaSEncrypt() {
         String cipher = service.eaaSEncrypt("hello-mist", Constance.EncryptAlgorithm.AES);
         assertNotNull(cipher);
-        verify(secretInfoMapper, never()).insert(any(ZMistSecretInfo.class));
+        assertEquals(0, secretInfo.times("insert"), "EaaS 加密不许落库");
     }
 
     @Test
@@ -113,7 +105,7 @@ public class ZMistSecretServiceImplTest {
         secret.setNamespace("");
         secret.setEncryptAlgorithm(Constance.EncryptAlgorithm.AES);
         secret.setEncryptedValue(service.encryptValue("from-db", Constance.EncryptAlgorithm.AES));
-        when(secretInfoMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(secret);
+        secretInfo.onReturn("selectOne", secret);
 
         String result = service.decryptToPlain("db_key", "DEFAULT_GROUP", "", null);
         assertEquals("from-db", result);
@@ -127,18 +119,16 @@ public class ZMistSecretServiceImplTest {
         s1.setSecretKey("db_password");
         ZMistSecretInfo s2 = new ZMistSecretInfo();
         s2.setSecretKey("api_key");
-        when(secretInfoMapper.selectList(any(LambdaQueryWrapper.class)))
-                .thenReturn(Arrays.asList(s1, s2));
+        secretInfo.onReturn("selectList", Arrays.asList(s1, s2));
 
         List<ZMistSecretInfo> result = service.searchSecrets("db", null, null);
         assertEquals(2, result.size());
-        verify(secretInfoMapper).selectList(any(LambdaQueryWrapper.class));
+        assertEquals(1, secretInfo.times("selectList"));
     }
 
     @Test
     void testSearchSecretsEmptyKeyword() {
-        when(secretInfoMapper.selectList(any(LambdaQueryWrapper.class)))
-                .thenReturn(Collections.emptyList());
+        secretInfo.onReturn("selectList", Collections.emptyList());
         List<ZMistSecretInfo> result = service.searchSecrets("", null, null);
         assertEquals(0, result.size());
     }
@@ -150,8 +140,7 @@ public class ZMistSecretServiceImplTest {
         ZMistSecretHistory h = new ZMistSecretHistory();
         h.setId(1L);
         h.setSecretKey("db");
-        when(secretHistoryMapper.selectList(any(LambdaQueryWrapper.class)))
-                .thenReturn(Collections.singletonList(h));
+        secretHistory.onReturn("selectList", Collections.singletonList(h));
         List<ZMistSecretHistory> result = service.listHistory("db", "DEFAULT_GROUP", "");
         assertEquals(1, result.size());
         assertEquals("db", result.get(0).getSecretKey());
@@ -167,7 +156,7 @@ public class ZMistSecretServiceImplTest {
         history.setEncryptedValue("old-cipher");
         history.setValueMd5("oldmd5");
         history.setKeyVersion("v1");
-        when(secretHistoryMapper.selectById(10L)).thenReturn(history);
+        secretHistory.on("selectById", args -> args[0].equals(10L) ? history : null);
 
         ZMistSecretInfo current = new ZMistSecretInfo();
         current.setId(1L);
@@ -177,20 +166,19 @@ public class ZMistSecretServiceImplTest {
         current.setKeyVersion("v5");
         current.setEncryptedValue("new-cipher");
         current.setEncryptAlgorithm(Constance.EncryptAlgorithm.AES);
-        when(secretInfoMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(current);
+        secretInfo.onReturn("selectOne", current);
 
         ZMistSecretInfo result = service.rollbackToHistory(10L);
         assertNotNull(result);
         // history 的版本 v1 + 自增 → v2
         assertEquals("v2", result.getKeyVersion());
         assertEquals("old-cipher", result.getEncryptedValue());
-        verify(secretInfoMapper).updateById(any(ZMistSecretInfo.class));
-        verify(secretHistoryMapper, times(1)).insert(any(ZMistSecretHistory.class)); // 仅 ROLLBACK 一次
+        assertEquals(1, secretInfo.times("updateById"));
+        assertEquals(1, secretHistory.times("insert"), "仅 ROLLBACK 一次");
     }
 
     @Test
     void testRollbackToHistoryNotFound() {
-        when(secretHistoryMapper.selectById(99L)).thenReturn(null);
         assertThrows(IllegalArgumentException.class, () -> service.rollbackToHistory(99L));
     }
 
@@ -206,22 +194,21 @@ public class ZMistSecretServiceImplTest {
         current.setKeyVersion("v1");
         current.setEncryptAlgorithm(Constance.EncryptAlgorithm.AES);
         current.setEncryptedValue("encrypted-old");
-        when(secretInfoMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(current);
+        secretInfo.onReturn("selectOne", current);
 
         ZMistSecretInfo rotated = service.rotateNow("rotate_key", "DEFAULT_GROUP", "", 32);
         assertNotNull(rotated);
         assertEquals("v2", rotated.getKeyVersion());
-        verify(secretHistoryMapper, atLeastOnce()).insert(any(ZMistSecretHistory.class));
-        ArgumentCaptor<ZMistRotationHistory> captor = ArgumentCaptor.forClass(ZMistRotationHistory.class);
-        verify(rotationHistoryMapper).insert(captor.capture());
-        assertEquals("v1", captor.getValue().getOldVersion());
-        assertEquals("v2", captor.getValue().getNewVersion());
-        assertEquals("api", captor.getValue().getTriggerType());
+        assertTrue(secretHistory.times("insert") >= 1);
+        assertEquals(1, rotationHistory.times("insert"));
+        ZMistRotationHistory rh = (ZMistRotationHistory) rotationHistory.calls("insert").get(0)[0];
+        assertEquals("v1", rh.getOldVersion());
+        assertEquals("v2", rh.getNewVersion());
+        assertEquals("api", rh.getTriggerType());
     }
 
     @Test
     void testRotateNowSecretNotFound() {
-        when(secretInfoMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
         assertThrows(IllegalArgumentException.class,
                 () -> service.rotateNow("nonexistent", "DEFAULT_GROUP", "", 32));
     }
@@ -237,25 +224,25 @@ public class ZMistSecretServiceImplTest {
         secret.setNamespace("");
         secret.setEncryptAlgorithm(Constance.EncryptAlgorithm.AES);
         secret.setEncryptedValue(service.encryptValue("source-plain", Constance.EncryptAlgorithm.AES));
-        when(secretInfoMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(secret);
+        secretInfo.onReturn("selectOne", secret);
 
         String dynKey = service.generateDynamic("source_key", "DEFAULT_GROUP", "", 60, "tester");
         assertNotNull(dynKey);
         assertTrue(dynKey.length() >= 32);
-        ArgumentCaptor<ZMistSecretDynamic> captor = ArgumentCaptor.forClass(ZMistSecretDynamic.class);
-        verify(secretDynamicMapper).insert(captor.capture());
-        assertEquals("source_key", captor.getValue().getSecretKey());
-        assertEquals(60, captor.getValue().getTtlSeconds());
-        assertEquals(Integer.valueOf(0), captor.getValue().getRevoked());
-        assertNotNull(captor.getValue().getExpireTime());
+        assertEquals(1, secretDynamic.times("insert"));
+        ZMistSecretDynamic saved = (ZMistSecretDynamic) secretDynamic.calls("insert").get(0)[0];
+        assertEquals("source_key", saved.getSecretKey());
+        assertEquals(60, saved.getTtlSeconds());
+        assertEquals(Integer.valueOf(0), saved.getRevoked());
+        assertNotNull(saved.getExpireTime());
     }
 
     @Test
     void testGenerateDynamicWithoutSource() {
         String dynKey = service.generateDynamic(null, null, "", 120, "tester");
         assertNotNull(dynKey);
-        verify(secretInfoMapper, never()).selectOne(any(LambdaQueryWrapper.class));
-        verify(secretDynamicMapper).insert(any(ZMistSecretDynamic.class));
+        assertEquals(0, secretInfo.times("selectOne"), "无源密钥不查库");
+        assertEquals(1, secretDynamic.times("insert"));
     }
 
     @Test
@@ -267,7 +254,7 @@ public class ZMistSecretServiceImplTest {
         secret.setNamespace("");
         secret.setEncryptAlgorithm(Constance.EncryptAlgorithm.AES);
         secret.setEncryptedValue(service.encryptValue("dyn-plain", Constance.EncryptAlgorithm.AES));
-        when(secretInfoMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(secret);
+        secretInfo.onReturn("selectOne", secret);
 
         String dynKey = service.generateDynamic("k", "DEFAULT_GROUP", "", 3600, "u");
         ZMistSecretDynamic stored = new ZMistSecretDynamic();
@@ -276,7 +263,7 @@ public class ZMistSecretServiceImplTest {
         stored.setAlgorithm(Constance.EncryptAlgorithm.AES);
         stored.setRevoked(0);
         stored.setExpireTime(LocalDateTime.now().plusHours(1));
-        when(secretDynamicMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(stored);
+        secretDynamic.onReturn("selectOne", stored);
 
         String plain = service.readDynamic(dynKey);
         assertEquals("dyn-plain", plain);
@@ -290,7 +277,7 @@ public class ZMistSecretServiceImplTest {
         dyn.setAlgorithm(Constance.EncryptAlgorithm.AES);
         dyn.setRevoked(0);
         dyn.setExpireTime(LocalDateTime.now().minusHours(1));
-        when(secretDynamicMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(dyn);
+        secretDynamic.onReturn("selectOne", dyn);
 
         assertThrows(IllegalStateException.class, () -> service.readDynamic("expired-key"));
     }
@@ -303,14 +290,13 @@ public class ZMistSecretServiceImplTest {
         dyn.setAlgorithm(Constance.EncryptAlgorithm.AES);
         dyn.setRevoked(1);
         dyn.setExpireTime(LocalDateTime.now().plusHours(1));
-        when(secretDynamicMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(dyn);
+        secretDynamic.onReturn("selectOne", dyn);
 
         assertThrows(IllegalStateException.class, () -> service.readDynamic("revoked-key"));
     }
 
     @Test
     void testReadDynamicNotFound() {
-        when(secretDynamicMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
         assertThrows(IllegalArgumentException.class, () -> service.readDynamic("nonexistent"));
     }
 
@@ -320,15 +306,14 @@ public class ZMistSecretServiceImplTest {
         dyn.setId(1L);
         dyn.setDynKey("revoke-me");
         dyn.setRevoked(0);
-        when(secretDynamicMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(dyn);
-        when(secretDynamicMapper.updateById(any(ZMistSecretDynamic.class))).thenReturn(1);
+        secretDynamic.onReturn("selectOne", dyn);
+        secretDynamic.onReturn("updateById", 1);
 
         assertTrue(service.revokeDynamic("revoke-me"));
     }
 
     @Test
     void testRevokeDynamicNotFound() {
-        when(secretDynamicMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
         assertFalse(service.revokeDynamic("nonexistent"));
     }
 
@@ -340,8 +325,9 @@ public class ZMistSecretServiceImplTest {
 
     @Test
     void testRecordAccessDoesNotThrow() {
-        doThrow(new RuntimeException("db down")).when(secretAccessLogMapper)
-                .insert(any(ZMistSecretAccessLog.class));
+        secretAccessLog.on("insert", args -> {
+            throw new RuntimeException("db down");
+        });
         assertDoesNotThrow(() -> service.recordAccess("k", "g", "n", "GET",
                 "user", "127.0.0.1", true, null));
     }
@@ -361,8 +347,8 @@ public class ZMistSecretServiceImplTest {
         assertEquals("v1", saved.getKeyVersion());
         assertNotNull(saved.getValueMd5());
         assertNotEquals("plain-value", saved.getEncryptedValue());
-        verify(secretInfoMapper).insert(any(ZMistSecretInfo.class));
-        verify(secretHistoryMapper).insert(any(ZMistSecretHistory.class));
+        assertEquals(1, secretInfo.times("insert"));
+        assertEquals(1, secretHistory.times("insert"));
     }
 
     @Test
@@ -376,8 +362,8 @@ public class ZMistSecretServiceImplTest {
 
         ZMistSecretInfo updated = service.updateSecret(secret);
         assertEquals("v4", updated.getKeyVersion());
-        verify(secretInfoMapper).updateById(any(ZMistSecretInfo.class));
-        verify(secretHistoryMapper).insert(any(ZMistSecretHistory.class));
+        assertEquals(1, secretInfo.times("updateById"));
+        assertEquals(1, secretHistory.times("insert"));
     }
 
     @Test
@@ -390,24 +376,22 @@ public class ZMistSecretServiceImplTest {
         secret.setEncryptedValue("c");
         secret.setValueMd5("m");
         secret.setKeyVersion("v1");
-        when(secretInfoMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(secret);
-        when(secretInfoMapper.delete(any(LambdaQueryWrapper.class))).thenReturn(1);
+        secretInfo.onReturn("selectOne", secret);
+        secretInfo.onReturn("delete", 1);
 
         assertTrue(service.deleteSecret("k", "g", "n"));
-        verify(secretHistoryMapper).insert(any(ZMistSecretHistory.class));
+        assertEquals(1, secretHistory.times("insert"));
     }
 
     @Test
     void testDeleteSecretNotFound() {
-        when(secretInfoMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
         assertFalse(service.deleteSecret("nonexistent", "g", "n"));
     }
 
     @Test
     void testListSecrets() {
         ZMistSecretInfo s1 = new ZMistSecretInfo();
-        when(secretInfoMapper.selectList(any(LambdaQueryWrapper.class)))
-                .thenReturn(Collections.singletonList(s1));
+        secretInfo.onReturn("selectList", Collections.singletonList(s1));
         List<ZMistSecretInfo> result = service.listSecrets("g", "app", "n");
         assertEquals(1, result.size());
     }

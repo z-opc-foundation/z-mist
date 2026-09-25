@@ -1,0 +1,9 @@
+# z-mist 对齐前基线 (SOP 步骤 1, 2026-09-25 14:51:17)
+## mvn -B clean verify -DskipTests
+BUILD SUCCESS, 6 模块 (common/core/web/client/sdk + root), Total 5.904s
+## mvn -B test
+Tests run: 39, Failures: 0, Errors: 0 (core 29 + web 10), BUILD SUCCESS
+## 体检 (align-to-z-boot): 5 PASS / 4 FAIL / 0 SKIP
+FAIL: 1 基线未存档(本文档即补) / 3 admin spring.datasource / 6 缺 request/response DTO 包 / 8 Mockito(1 文件)+@SpringBootTest(admin 1 文件)
+## 违规测试文件: z-mist-core/.../ZMistSecretServiceImplTest.java (Mockito), z-mist-admin/.../SecretControllerTest.java (@SpringBootTest)
+## 已知: admin 模块不在根 reactor (mvn test 不覆盖 admin)

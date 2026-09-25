@@ -1,6 +1,7 @@
 package com.zifang.z.mist.admin.api;
 
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
+import com.zifang.z.mist.admin.api.request.EaaSRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +30,7 @@ import java.util.Map;
  * </ul>
  */
 @Tag(name = "加密即服务 EaaS(FEATURE026)")
-@RestController
+@RestController("zMistEaaSController")
 @RequestMapping("/api/eaas")
 public class EaaSController {
 
@@ -40,6 +41,7 @@ public class EaaSController {
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/encrypt")
     public Map<String, Object> encrypt(@RequestBody EaaSRequest req, HttpServletRequest request) {
+        // 不规则聚合输出(algorithm 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         boolean success = false;
         String errMsg = null;
@@ -71,6 +73,7 @@ public class EaaSController {
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @PostMapping("/decrypt")
     public Map<String, Object> decrypt(@RequestBody EaaSRequest req, HttpServletRequest request) {
+        // 不规则聚合输出(algorithm 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         boolean success = false;
         String errMsg = null;
@@ -112,14 +115,5 @@ public class EaaSController {
             return xff.split(",")[0].trim();
         }
         return request.getRemoteAddr();
-    }
-
-    /**
-     * EaaS 请求体: 加密时 plainText 必填, 解密时 cipherText 必填.
-     */
-    public static class EaaSRequest {
-        public String plainText;
-        public String cipherText;
-        public String algorithm;
     }
 }
