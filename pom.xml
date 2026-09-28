@@ -78,7 +78,7 @@
 
     <properties>
         <!-- CI-friendly 版本根 (发版改这一处即可；配下方常开 flatten，入库/发布件里落成字面量) -->
-        <revision>1.0.3</revision>
+        <revision>1.0.4</revision>
 
         <!-- 2026-09-29 迁移到 z-boot-parent：版本口径由父链下发，下面这些键已删——**父链面值与本仓
              逐字节相同**（键删了、tree 里这些坐标的版本一件没动）：
