@@ -4,10 +4,21 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!-- 消费入口统一走 z-boot-parent（1.0.19 起全组织口径，试点是 z-cache）：它继承第三方地板
+         z-boot-dependencies:1.0.19、import 兄弟仓权威 z-boot-fleet:1.0.0，并下发 Java 8 的
+         pluginManagement（compiler 3.11.0 + source/target 8 + -parameters）。本仓此前没有 <parent>，
+         版本表自己维护 ⇒ 每个仓一套属性名、同一个坐标各仓各一版。
+         relativePath 必须留空：parent 不在磁盘上，在 repo1。 -->
+    <parent>
+        <groupId>io.github.yuku123</groupId>
+        <artifactId>z-boot-parent</artifactId>
+        <version>1.0.19</version>
+        <relativePath/>
+    </parent>
+
     <!--
-        z-mist 自包含 parent — 不依赖 monorepo 内部 parent,
-        改造为 io.github.yuku123 namespace (Maven Central 命名空间).
-        使用 ${revision} (CI-friendly versions) + flatten-maven-plugin 发版自动替换.
+        z-mist 仓根 pom — io.github.yuku123 namespace (Maven Central 命名空间).
+        使用 ${revision} (CI-friendly versions) + 下方常开 flatten(oss)，入库/发布件里落成字面量.
 
         模块结构:
           - z-mist-common            : 协议层 (Message / Encoder / Decoder / Serializer / DTO)
@@ -66,50 +77,47 @@
     </modules>
 
     <properties>
-        <!-- CI-friendly 版本根 (发版改这一处即可) -->
+        <!-- CI-friendly 版本根 (发版改这一处即可；配下方常开 flatten，入库/发布件里落成字面量) -->
         <revision>1.0.3</revision>
 
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
-        <!-- 第三方版本 -->
-        <!-- 2026-09-28「同坐标单版本」：2.7.12 → 2.7.18（2.7 线最后一版，Java 8 可用），
-             与 z-boot-dependencies 1.0.18 / z-opc 根 pom 同一口径；12→18 含 CVE 修复，纯上行。 -->
-        <spring-boot.version>2.7.18</spring-boot.version>
-        <druid.version>1.2.18</druid.version>
+        <!-- 2026-09-29 迁移到 z-boot-parent：版本口径由父链下发，下面这些键已删——**父链面值与本仓
+             逐字节相同**（键删了、tree 里这些坐标的版本一件没动）：
+               spring-boot 2.7.18 / netty-all 4.1.138.Final / okhttp 4.12.0（直接声明那一处）/
+               knife4j-openapi3-spring-boot-starter 4.1.0（地板 knife4j-openapi3.version 同值）/
+               mybatis-plus 3.5.7 / druid 1.2.23 / z-util-core 1.0.13（fleet 同值）/
+               flatten-maven-plugin 1.7.3 / maven.compiler.source|target=8 / sourceEncoding=UTF-8。
+             druid 1.2.18、slf4j 1.7.36、mybatis-plus 3.5.7、knife4j 4.1.0 四格以前要么就是死键
+             （全仓 0 处 <version> 引用 druid/slf4j/mybatis-plus），要么与地板同值（knife4j）⇒ 删。
+             tree 里真正动版本的只有 netty/jackson/spring/jsonpath/junit/okhttp 这些**传递**格，
+             它们本来就是 1.0.19 那次「同坐标单版本」收敛的对象，逐条记在迁移报告里。
+             留着四格：log4j2 与 mysql 是与地板的刻意分歧（见 DM），cron-utils 与
+             central-publishing 插件版本父链根本不供给。 -->
+        <log4j2.version>2.17.2</log4j2.version>
         <mysql.version>8.0.33</mysql.version>
-        <log4j2.version>2.20.0</log4j2.version>
-        <slf4j.version>1.7.36</slf4j.version>
-        <mybatis-plus.version>3.5.7</mybatis-plus.version>
-        <!-- 2026-09-28「同坐标单版本」：4.1.108.Final → 4.1.138.Final，与 z-boot-dependencies 1.0.18 的
-             netty-bom 同一口径（4.1.138 含 CVE 修复，4.1.x 内二进制兼容）。 -->
-        <netty.version>4.1.138.Final</netty.version>
-        <knife4j.version>4.1.0</knife4j.version>
         <cron-utils.version>9.2.1</cron-utils.version>
-        <okhttp.version>4.12.0</okhttp.version>
-
-        <!-- 内部依赖 -->
-        <z-boot.version>1.0.17</z-boot.version>
-        <z-util.version>1.0.13</z-util.version>
-
-        <!-- Maven 插件版本 -->
-        <flatten-maven-plugin.version>1.7.3</flatten-maven-plugin.version>
         <central-publishing-maven-plugin.version>0.7.0</central-publishing-maven-plugin.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Spring Boot BOM -->
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring-boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
+            <!-- Spring Boot BOM 的 import 删掉：父链 z-boot-dependencies:1.0.19 自己 import 了
+                 同版本 spring-boot-dependencies(2.7.18)，本仓再 import 一遍只是把"谁先声明谁赢"
+                 的排序留在仓里——这正是迁移前 netty 家族被 Boot 的 netty-bom 压成 4.1.101、
+                 与本仓直接声明的 netty-all 4.1.138 混编在一棵树里的原因（地板把 netty-bom/jackson-bom/
+                 spring-framework-bom 排在 spring-boot-dependencies 之前，整族一次到位）。 -->
 
-            <!-- 内部 module -->
+            <!-- 本仓自家 6 个 reactor 坐标钉 ${project.version}。这一格不是装饰：继承来的 DM 会改写
+                 **传递依赖**的版本，而 fleet 里兄弟仓那一格钉的是 repo1 上的**旧发布件** ⇒ 不写死，
+                 z-mist-sdk 的 shade 包与 web 的 tree 都可能拿旧 sibling 字节码（z-cache 试点实测踩过：
+                 1.3.5 的 z-cache-common 被打进 1.3.6 的包里）。聚合 pom 那条必须带 <type>pom</type>，
+                 受管项按 g:a:type:classifier 匹配，不带 type 的条目挂在根本不存在的 jar 坐标上。
+                 fleet 目前**没有** z-mist 这一格，所以这一批今天看不出差别，写上才是把话说死。 -->
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-mist</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+            </dependency>
             <dependency>
                 <groupId>io.github.yuku123</groupId>
                 <artifactId>z-mist-common</artifactId>
@@ -136,47 +144,95 @@
                 <version>${project.version}</version>
             </dependency>
 
-            <!-- 第三方 BOM -->
+            <!-- ⚠ 与地板面值不同的分歧必须按**坐标**写直接条目，两条理由各一次实测：
+                 1) 继承来的直接 DM 条目**顶不过**本仓 import 进来的 BOM——本仓原来那条
+                    log4j-bom:2.20.0 的 import 就是个假动作：spring-boot-dependencies 声明在它之前，
+                    "先声明者获胜"，所以 api/core/jul/slf4j-impl/to-slf4j 五件一直是 2.17.2，
+                    2.20.0 那只落在 Boot 不管、地板也不管的那一支 log4j-slf4j2-impl 上。
+                 2) 地板把 log4j-api/core/jul/slf4j-impl **直接**钉在 2.25.4，光删属性不写条目就静默升级。
+                 留 2.17.2 是零漂移判断（与 z-cache/z-rpc 同一格），抬 log4j2 版本要连 Java 8 字节码
+                 一起验，不在"统一继承 parent"这一格里顺手做。
+                 log4j-to-slf4j / logback-classic / logback-core / jul-to-slf4j 四件不在这里钉，也不是我们钉得住的：
+                 地板对 spring-boot-starter-logging 写了 *:* 通配 exclusion，它们从每棵树里消失
+                 （实测逐模块坐标 575 条 → 561 条：少 16 条就是上面这四处 + common 的 slf4j-api，
+                 多 2 条是 okhttp 4.12.0 带进来的 kotlin-stdlib-jdk7/jdk8），
+                 而本仓 0 个 logback*.xml、代码 0 处 org.slf4j/ch.qos.logback import（生产实现是 log4j2）
+                 ⇒ 按 README「消费模型」第 8 步的作用域判据**不补 binding**。 -->
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-bom</artifactId>
+                <artifactId>log4j-api</artifactId>
                 <version>${log4j2.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
             </dependency>
             <dependency>
-                <groupId>io.github.yuku123</groupId>
-                <artifactId>z-boot-dependencies</artifactId>
-                <version>${z-boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-core</artifactId>
+                <version>${log4j2.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.yuku123</groupId>
-                <artifactId>z-util-core</artifactId>
-                <version>${z-util.version}</version>
-            </dependency>
-
-            <!-- z-boot-* starter 由 z-boot 1.0.17 同步发布，BOM 不管理自家 starter，需要显式锁版本 -->
-            <dependency>
-                <groupId>io.github.yuku123</groupId>
-                <artifactId>z-boot-web-starter</artifactId>
-                <version>${z-boot.version}</version>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-jul</artifactId>
+                <version>${log4j2.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.github.yuku123</groupId>
-                <artifactId>z-boot-datasource-starter</artifactId>
-                <version>${z-boot.version}</version>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-slf4j-impl</artifactId>
+                <version>${log4j2.version}</version>
             </dependency>
+            <!-- mysql 同理：地板跟 mysql 官方线走 8.4.0，而本仓基线（Boot 2.7.18 的 DM）是 8.0.33，
+                 本仓那个 mysql.version=8.0.33 属性以前是死键（Boot 的 BOM 先声明、供的就是 8.0.33，
+                 数值恰好相同所以从未见差）⇒ 按坐标写直接条目才顶得住继承来的 8.4.0，零漂移。
+                 ⚠ 那条 exclusion 不是抄来的装饰，是**照抄 Boot 自己那条受管项**：spring-boot-dependencies
+                 对 mysql-connector-j 排掉了 com.google.protobuf:protobuf-java，而"直接条目"是整条替换
+                 ——只写版本不带 exclusion，实测 protobuf-java:3.25.5 会从 mysql 底下冒进
+                 core/web/sdk 三棵树并被打进 z-mist-sdk 的 shade 包（基线里它压根不在）。 -->
+            <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>${mysql.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.protobuf</groupId>
+                        <artifactId>protobuf-java</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <!-- log4j-slf4j2-impl 是 SLF4J 2.x 那一支的桥，基线面值 2.20.0（跟着 z-util-core:1.0.13
+                 自己那条无版本依赖落到 2.26.1 之前，一直是本仓 log4j-bom import 在按着它）：
+                 地板不管这个坐标，光删 import 就漂成 2.26.1。按实测面值钉住，零漂移。
+                 （类路径上 slf4j-api 是 1.7.36，这支桥本身在运行时是惰性的；把整族抬到同一版是
+                 另一个决定，与上面 log4j2 那四条一起判。） -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-slf4j2-impl</artifactId>
+                <version>2.20.0</version>
+            </dependency>
+            <!-- cron-utils：父链完全不供这一坐标（地板只字面管 okhttp/knife4j/netty…），
+                 键留着并把版本收进 DM，模块侧不再各自写 <version>。 -->
+            <dependency>
+                <groupId>com.cronutils</groupId>
+                <artifactId>cron-utils</artifactId>
+                <version>${cron-utils.version}</version>
+            </dependency>
+            <!-- 内部依赖的三格也删了：z-boot-dependencies:1.0.17 的 import（地板由父链换成 1.0.19）、
+                 z-util-core 与 z-boot-web-starter / z-boot-datasource-starter 的手工锁
+                 （fleet 供 z-util-core 1.0.13，z-boot-parent 自家钉 z-boot 23 件 = 1.0.19）。
+                 旧注释说"BOM 不管理自家 starter，需要显式锁版本"——1.0.19 起 parent 就是干这个的。 -->
         </dependencies>
     </dependencyManagement>
 
     <build>
         <plugins>
+            <!-- 常开（不挂 central profile）：挂 profile 时 `mvn install` 不带 -P central，
+                 装进本地仓的 pom 就带着 z-boot-parent 那条 <parent>，本机消费者读到的 pom 依赖
+                 一条它自己解析不到的链。本仓中央上 1.0.3 的 6 件 pom `<parent>` 计数实测 0
+                 （flatten oss 剥干净、自包含）⇒ 迁移后必须继续保持 oss + 常开才不漂形状。
+                 flatten 声明不能只靠父链：z-boot-parent 那条是 <inherited>false</inherited>，
+                 不下发。版本沿用本仓基线的 1.7.3（键删了、字面量写死，迁移不顺手改插件版本）。 -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
-                <version>${flatten-maven-plugin.version}</version>
+                <version>1.7.3</version>
+                <inherited>true</inherited>
                 <configuration>
                     <updatePomFile>true</updatePomFile>
                     <!-- oss 模式: 子 POM 完全 self-contained,
@@ -197,16 +253,8 @@
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
-                <configuration>
-                    <source>${maven.compiler.source}</source>
-                    <target>${maven.compiler.target}</target>
-                    <encoding>${project.build.sourceEncoding}</encoding>
-                </configuration>
-            </plugin>
+            <!-- maven-compiler-plugin 那段本地声明（3.11.0 + source/target/encoding）删掉：
+                 父链 pluginManagement 供的是同一个 3.11.0、同样的 8/8/UTF-8，另加 -parameters。 -->
         </plugins>
     </build>
     <profiles>
