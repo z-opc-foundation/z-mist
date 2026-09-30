@@ -215,6 +215,6 @@ MIT License，见根 [`LICENSE`](LICENSE)。
   - [`migrate_package.py`](_doc/003_script/migrate_package.py) — 包名迁移到 `com.zifang.z.mist.*` 的脚本
   - [`package.sh`](_doc/003_script/package.sh)
   - [`对齐前_基线.txt`](_doc/003_script/对齐前_基线.txt) — 对齐 z-boot 家族标准前的构建/测试/体检基线
-- [`_doc/004_skill/`](_doc/004_skill/) — AI skill 定义（目前为空目录，暂无 skill）
+- `_doc/004_skill/` — AI skill 定义（目前为空目录，暂无 skill）
 
 _Maintained by the z-opc-foundation organization._
