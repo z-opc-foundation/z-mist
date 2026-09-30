@@ -6,8 +6,8 @@
 #       Central Portal User Token 替代了旧的 OSSRH 账号密码
 #
 # 用法:
-#   ./install-settings.sh           # 合并注入（保留原有配置）
-#   ./install-settings.sh --force   # 覆盖 ~/.m2/settings.xml
+#   bash _doc/003_script/install-settings.sh           # 合并注入（保留原有配置）
+#   bash _doc/003_script/install-settings.sh --force   # 覆盖 ~/.m2/settings.xml
 #
 # 提示: CENTRAL_USERNAME / CENTRAL_TOKEN 从 .env 读
 #
@@ -28,7 +28,7 @@ FORCE=0
 [[ "${1:-}" == "--force" ]] && FORCE=1
 
 # ---------- 读取凭证 ----------
-[[ -f .env ]] || die ".env 不存在。请先跑 ./deploy_maven_center.sh gpg-init 创建模板"
+[[ -f .env ]] || die ".env 不存在。请先跑 bash _doc/003_script/deploy_maven_center.sh gpg-init 创建模板"
 # shellcheck disable=SC1091
 set -a; source .env; set +a
 
@@ -83,4 +83,4 @@ print("[install] 已合并 <server id=\"$SERVER_ID\"> 到 $SETTINGS")
 PYEOF
 fi
 
-log "✅ 完成。下一步：./deploy_maven_center.sh publish"
+log "✅ 完成。下一步：bash _doc/003_script/deploy_maven_center.sh publish"
