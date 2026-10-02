@@ -5,7 +5,7 @@
 
 ## 0. 凭据泄露历史与消除记录(2026-09-15)
 
-- **背景**:z-mist 拆出时(2026-09-06,commit 693c375)从 z-opc monorepo 直接拷出 application.yml,内含明文 RDS 密码 `Hhzemol!` 与 `1qaz2wsx3edc`,已通过 commit 公开到 GitHub 网络
+- **背景**:z-mist 拆出时(2026-09-06,commit 693c375)从 z-opc monorepo 直接拷出 application.yml,内含明文 RDS 密码 `<REDACTED:值在 lead/004_重要秘钥/z-opc.env>` 与 `1qaz2wsx3edc`,已通过 commit 公开到 GitHub 网络
 - **风险评估判定**(组织 lead 2026-09-16):**commit 历史塌缩(force-push 后远端不可见)即视为凭据风险消除**,不再额外要求重置 RDS 密码
   - 理由:第三方扫描工具(fork 镜像 / Google cache / GitHub event log)无法直接命中被 force-push 覆盖的 commit SHA;自动化扫描器对历史的依赖性强
 - **执行**:
