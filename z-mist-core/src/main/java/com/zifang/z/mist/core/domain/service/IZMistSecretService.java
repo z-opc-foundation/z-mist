@@ -83,6 +83,32 @@ public interface IZMistSecretService extends IService<ZMistSecretInfo> {
     String decryptValue(String encryptedValue, String algorithm);
 
     /**
+     * 用<b>显式给定</b>的主密钥加密（主密钥轮换用）。
+     * <p>
+     * 与 {@link #encryptValue} 的区别只在于不读全局主密钥，因此调用方无需临时改
+     * {@code System.getProperty("z-mist.master-key")} —— 那会让轮换过程中并发进来的
+     * 普通读写请求读到"改到一半"的主密钥，把无关的密钥值写成解不开的密文。
+     *
+     * @param plainValue 明文值
+     * @param algorithm  加密算法；{@code RSA} 仍走进程内 KeyPair（不适用于落库）
+     * @param masterKey  本次使用的主密钥
+     * @return 加密后的密文
+     * @throws RuntimeException 加密失败时抛出
+     */
+    String encryptValueWithKey(String plainValue, String algorithm, String masterKey);
+
+    /**
+     * 用<b>显式给定</b>的主密钥解密（主密钥轮换用）。理由同 {@link #encryptValueWithKey}。
+     *
+     * @param encryptedValue 密文值
+     * @param algorithm      加密算法
+     * @param masterKey      本次使用的主密钥
+     * @return 解密后的明文
+     * @throws RuntimeException 解密失败时抛出
+     */
+    String decryptValueWithKey(String encryptedValue, String algorithm, String masterKey);
+
+    /**
      * 解密指定密钥的密文得到明文(FEATURE026 P0).
      * <p>
      * 用于业务方拿到 ciphertext 后回查明文(同主密钥可双向解析)。

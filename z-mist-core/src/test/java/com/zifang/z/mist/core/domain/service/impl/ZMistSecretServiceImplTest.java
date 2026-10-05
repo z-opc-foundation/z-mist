@@ -1,9 +1,11 @@
 package com.zifang.z.mist.core.domain.service.impl;
 
 import com.zifang.z.mist.common.Constance;
+import com.zifang.z.mist.common.crypto.MistCrypto;
 import com.zifang.z.mist.core.domain.entity.*;
 import com.zifang.z.mist.core.domain.mapper.*;
 import com.zifang.z.mist.core.support.Proxies;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -394,5 +396,193 @@ public class ZMistSecretServiceImplTest {
         secretInfo.onReturn("selectList", Collections.singletonList(s1));
         List<ZMistSecretInfo> result = service.listSecrets("g", "app", "n");
         assertEquals(1, result.size());
+    }
+
+    // ================================================================
+    // FEATURE027: 密文格式 / 存量兼容 / RSA 落库闸门 / 主密钥轮换不改全局属性
+    // 全部为实测坐实的缺陷的回归闸, 每一道都能在旧实现上跑红。
+    // ================================================================
+
+    private static final String SYS_PROP = "z-mist.master-key";
+
+    /** 还原全局主密钥系统属性, 避免污染同 JVM 内其它测试。 */
+    @AfterEach
+    void clearMasterKeySysProp() {
+        System.clearProperty(SYS_PROP);
+    }
+
+    /**
+     * 旧实现用的是 {@code Cipher.getInstance("AES")}，即 AES/ECB/PKCS5Padding。
+     * 这里逐字节复刻它，用来证明<b>存量密文不需要迁移</b>。
+     */
+    private static String legacyEcbEncrypt(String plain, String masterKey) throws Exception {
+        byte[] key = java.security.MessageDigest.getInstance("MD5")
+                .digest(masterKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES");
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE,
+                new javax.crypto.spec.SecretKeySpec(key, "AES"));
+        return java.util.Base64.getEncoder().encodeToString(cipher.doFinal(
+                plain.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void testLegacyEcbCiphertextStillDecrypts() throws Exception {
+        // 迁移安全闸: 本条在"新实现只支持 GCM"时必须红
+        String masterKey = "legacy-master-key-0001";
+        String legacyCipher = legacyEcbEncrypt("存量密文必须还能读出来", masterKey);
+        assertTrue(MistCrypto.isLegacy(legacyCipher), "存量 ECB 密文应被识别为 legacy");
+
+        System.setProperty(SYS_PROP, masterKey);
+        assertEquals("存量密文必须还能读出来",
+                service.decryptValue(legacyCipher, Constance.EncryptAlgorithm.AES));
+    }
+
+    @Test
+    void testLegacyCiphertextCanNeverCollideWithNewFormat() throws Exception {
+        // Base64 字母表不含 ':', 所以 'zm1:' 前缀与存量密文永不含糊 —— 这是分流无歧义的前提
+        for (int i = 0; i < 200; i++) {
+            String legacy = legacyEcbEncrypt("v" + i, "k");
+            assertTrue(MistCrypto.isLegacy(legacy));
+            assertFalse(legacy.startsWith("zm1:"));
+        }
+    }
+
+    @Test
+    void testAesCiphertextIsNotDeterministic() {
+        // ECB 闸: 旧实现同一明文两次密文完全相同
+        String plain = "same-secret-value";
+        String c1 = service.encryptValue(plain, Constance.EncryptAlgorithm.AES);
+        String c2 = service.encryptValue(plain, Constance.EncryptAlgorithm.AES);
+        assertNotEquals(c1, c2, "同一明文两次加密必须得到不同密文（随机 nonce）");
+        assertEquals(plain, service.decryptValue(c1, Constance.EncryptAlgorithm.AES));
+        assertEquals(plain, service.decryptValue(c2, Constance.EncryptAlgorithm.AES));
+    }
+
+    @Test
+    void testAesCiphertextDoesNotLeakEqualBlocks() {
+        // 结构泄露闸: 两条明文首 16 字节(AES 一个块)完全相同, 密文首块必须不同
+        String p1 = "0000000000000001:pw-alpha";
+        String p2 = "0000000000000001:pw-bravo";
+        assertEquals(p1.substring(0, 16), p2.substring(0, 16));
+
+        byte[] c1 = gcmBody(service.encryptValue(p1, Constance.EncryptAlgorithm.AES));
+        byte[] c2 = gcmBody(service.encryptValue(p2, Constance.EncryptAlgorithm.AES));
+        // GCM: [nonce 12][ciphertext][tag 16]; 比较密文首块(跳过 nonce)
+        assertFalse(Arrays.equals(Arrays.copyOfRange(c1, 12, 28), Arrays.copyOfRange(c2, 12, 28)),
+                "首块相同的明文不应产出相同的密文首块");
+    }
+
+    /** 剥掉 "zm1:" 前缀解 base64, 得到 GCM 的 [nonce|ct|tag] 原始字节。 */
+    private static byte[] gcmBody(String stored) {
+        assertTrue(stored.startsWith("zm1:"), "本测试只处理新格式, 实际: " + stored);
+        return java.util.Base64.getDecoder().decode(stored.substring("zm1:".length()));
+    }
+
+    @Test
+    void testNewCiphertextCarriesFormatPrefix() {
+        String cipher = service.encryptValue("x", Constance.EncryptAlgorithm.AES);
+        assertTrue(cipher.startsWith("zm1:"), "新密文应带版本前缀");
+        assertFalse(MistCrypto.isLegacy(cipher));
+    }
+
+    @Test
+    void testSaveSecretRejectsRsa() {
+        // RSA 落库闸: RSA KeyPair 只存在于进程内, 落库的密文重启后永久解不开
+        ZMistSecretInfo s = new ZMistSecretInfo();
+        s.setSecretKey("k");
+        s.setGroup("g");
+        s.setNamespace("n");
+        s.setEncryptedValue("plain");
+        s.setEncryptAlgorithm(Constance.EncryptAlgorithm.RSA);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> service.saveSecret(s));
+        assertTrue(ex.getMessage().contains("RSA"), "报错要说清是 RSA 的问题");
+        assertEquals(0, secretInfo.times("insert"), "被拒的请求不许落库");
+    }
+
+    @Test
+    void testUpdateSecretRejectsRsa() {
+        ZMistSecretInfo s = new ZMistSecretInfo();
+        s.setId(1L);
+        s.setSecretKey("k");
+        s.setGroup("g");
+        s.setNamespace("n");
+        s.setEncryptedValue("plain");
+        s.setEncryptAlgorithm(Constance.EncryptAlgorithm.RSA);
+
+        assertThrows(IllegalArgumentException.class, () -> service.updateSecret(s));
+        assertEquals(0, secretInfo.times("updateById"), "被拒的请求不许落库");
+    }
+
+    @Test
+    void testEaaSStillAllowsRsa() {
+        // 闸门的边界: 不落库的 EaaS 加解密仍应放行 RSA
+        String cipher = service.eaaSEncrypt("eaas-rsa", Constance.EncryptAlgorithm.RSA);
+        assertEquals("eaas-rsa", service.eaaSDecrypt(cipher, Constance.EncryptAlgorithm.RSA));
+    }
+
+    @Test
+    void testExplicitKeyMethodsDoNotMutateGlobalMasterKey() throws Exception {
+        // 轮换回归闸: 早前是每迁一行就 System.setProperty 在 oldKey/newKey 之间来回切,
+        // 并发进来的普通读写会读到改到一半的值。这里断言整个过程全局属性一动不动。
+        String oldKey = "the-live-master-key";
+        String newKey = "the-brand-new-master-key";
+        System.setProperty(SYS_PROP, oldKey);
+
+        String oldCipher = service.encryptValue("payload", Constance.EncryptAlgorithm.AES);
+        assertEquals(oldKey, System.getProperty(SYS_PROP), "前置: 全局属性是旧主密钥");
+
+        String plain = service.decryptValueWithKey(oldCipher, Constance.EncryptAlgorithm.AES, oldKey);
+        String newCipher = service.encryptValueWithKey(plain, Constance.EncryptAlgorithm.AES, newKey);
+
+        assertEquals(oldKey, System.getProperty(SYS_PROP),
+                "轮换过程中的 decryptValueWithKey/encryptValueWithKey 不许改全局主密钥");
+    }
+
+    @Test
+    void testExplicitKeyRoundTripIsKeyScoped() throws Exception {
+        String keyA = "master-key-aaaa";
+        String keyB = "master-key-bbbb";
+        String cipher = service.encryptValueWithKey("secret", Constance.EncryptAlgorithm.AES, keyA);
+
+        assertEquals("secret", service.decryptValueWithKey(cipher, Constance.EncryptAlgorithm.AES, keyA));
+        assertThrows(RuntimeException.class,
+                () -> service.decryptValueWithKey(cipher, Constance.EncryptAlgorithm.AES, keyB),
+                "换一把主密钥必须解不开");
+    }
+
+    @Test
+    void testRotatedCiphertextIsNotReadableByOldLiveMasterKey() throws Exception {
+        // 轮换语义闸: 用新主密钥重加密的密文, 进程内仍在用的旧主密钥必须读不出来
+        // —— 否则说明"迁移"其实没换密钥, 看着成功实则没轮换。
+        String oldKey = "live-old-key";
+        String newKey = "rotated-new-key";
+        System.setProperty(SYS_PROP, oldKey);
+
+        String oldCipher = service.encryptValue("secret", Constance.EncryptAlgorithm.AES);
+        String plain = service.decryptValueWithKey(oldCipher, Constance.EncryptAlgorithm.AES, oldKey);
+        String rotated = service.encryptValueWithKey(plain, Constance.EncryptAlgorithm.AES, newKey);
+
+        assertThrows(RuntimeException.class,
+                () -> service.decryptValue(rotated, Constance.EncryptAlgorithm.AES),
+                "已轮换的密文不该再被旧主密钥解出来");
+        // 换到新主密钥后即可读出
+        System.setProperty(SYS_PROP, newKey);
+        assertEquals("secret", service.decryptValue(rotated, Constance.EncryptAlgorithm.AES));
+    }
+
+    @Test
+    void testLegacyCiphertextSurvivesMasterKeyRotation() throws Exception {
+        // 轮换 + 存量格式的组合: 存量 ECB 密文迁到新主密钥后仍应能读
+        String oldKey = "rot-old-key";
+        String newKey = "rot-new-key";
+        String legacy = legacyEcbEncrypt("old-format-value", oldKey);
+
+        String plain = service.decryptValueWithKey(legacy, Constance.EncryptAlgorithm.AES, oldKey);
+        String migrated = service.encryptValueWithKey(plain, Constance.EncryptAlgorithm.AES, newKey);
+
+        System.setProperty(SYS_PROP, newKey);
+        assertEquals("old-format-value", service.decryptValue(migrated, Constance.EncryptAlgorithm.AES));
     }
 }

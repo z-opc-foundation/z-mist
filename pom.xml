@@ -73,7 +73,19 @@
         <module>z-mist-web</module>
         <module>z-mist-client</module>
         <module>z-mist-sdk</module>
-        <!-- z-mist-admin 不进 reactor: 独立可启动演示应用 + 前端 (vite) -->
+        <!--
+            z-mist-admin 现在进 reactor。早前它被排除在外，于是 `cd z-mist-admin && mvn spring-boot:run`
+            解析到的是 ~/.m2 里**已发布的** z-mist-common:1.0.4 / z-mist-core:1.0.4，
+            而不是它隔壁源码目录里的那份 —— 本机实测：往 z-mist-common 加一个新类后，
+            admin 独立构建立刻挂在 "package com.zifang.z.mist.common.crypto does not exist"，
+            但仓根 `mvn test` 一路绿灯，看不出任何东西坏了。
+            也就是说 admin 会对着陈旧产物构建，源码与它实际编译的东西长期可以不一致。
+            纳入 reactor 后一次 `mvn test` 就能编到全部模块。
+
+            它没绑任何前端插件（_frontend 有自己的 pom，同样不在 reactor 里，走 pnpm/vite），
+            spring-boot-maven-plugin 的 repackage 又是 skip 的，所以进 reactor 不会多出别的东西。
+        -->
+        <module>z-mist-admin</module>
     </modules>
 
     <properties>

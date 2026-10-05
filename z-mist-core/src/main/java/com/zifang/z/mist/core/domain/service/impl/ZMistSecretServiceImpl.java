@@ -3,6 +3,7 @@ package com.zifang.z.mist.core.domain.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zifang.z.mist.common.Constance;
+import com.zifang.z.mist.common.crypto.MistCrypto;
 import com.zifang.z.mist.core.domain.entity.*;
 import com.zifang.z.mist.core.domain.mapper.*;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
@@ -13,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.time.LocalDateTime;
@@ -42,6 +42,9 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
      * FEATURE026 P0: RSA 真实现. 用主密钥派生 RSA KeyPair(同一 master key 同进程内稳定缓存).
      */
     private final ConcurrentHashMap<String, KeyPair> rsaKeyPairCache = new ConcurrentHashMap<>();
+    /** RSA KeyPair 生成的锁。不用 cacheKey.intern()：那会把主密钥塞进 JVM 字符串池且永不回收。 */
+    private final Object rsaKeyPairLock = new Object();
+
     @Autowired
     private ZMistSecretInfoMapper secretInfoMapper;
     @Autowired
@@ -83,6 +86,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
         secret.setGmtModified(now);
         secret.setKeyVersion("v1");
 
+        rejectUnpersistableAlgorithm(secret.getEncryptAlgorithm());
         String encryptedValue = encryptValue(secret.getEncryptedValue(), secret.getEncryptAlgorithm());
         secret.setEncryptedValue(encryptedValue);
         secret.setValueMd5(calculateMd5(secret.getEncryptedValue()));
@@ -97,6 +101,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
         LocalDateTime now = LocalDateTime.now();
         secret.setGmtModified(now);
 
+        rejectUnpersistableAlgorithm(secret.getEncryptAlgorithm());
         String encryptedValue = encryptValue(secret.getEncryptedValue(), secret.getEncryptAlgorithm());
         secret.setEncryptedValue(encryptedValue);
         secret.setValueMd5(calculateMd5(secret.getEncryptedValue()));
@@ -144,6 +149,28 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
 
     // ============ P0: 加密/解密 ============
 
+    /**
+     * 拒绝把 RSA 密文落库。
+     * <p>
+     * RSA KeyPair 是进程级缓存且跨重启不保留（见 {@link #getOrCreateRSAKeyPair}），
+     * 用 RSA 加密再写进 {@code z_mist_secret_info} 的值，服务一重启就<b>永久不可解</b>：
+     * 重启后拿到的是全新 KeyPair，解密抛 {@code BadPaddingException}，
+     * 且本仓不保存历史私钥，没有任何回退路径。
+     * <p>
+     * 早前这里直接放行，而 {@code encryptAlgorithm} 是 HTTP 请求体里客户端可传的字段
+     * （{@code SecretReq.encryptAlgorithm}），等于把"重启即丢数据"的入口开给了调用方。
+     * 这里改成写入前 fail-fast：宁可当场报错，也不落一份注定解不开的密文。
+     * <p>
+     * 确实需要 RSA 的场景走 {@link #eaaSEncrypt}（进程内加解密对，不落库）。
+     */
+    private void rejectUnpersistableAlgorithm(String algorithm) {
+        if (Constance.EncryptAlgorithm.RSA.equals(algorithm)) {
+            throw new IllegalArgumentException(
+                    "encryptAlgorithm=RSA 不能用于落库：RSA KeyPair 仅存在于当前进程内，重启后无法解密。"
+                            + "密钥存储请使用 AES；如确需 RSA，请走 EaaS 加解密接口。");
+        }
+    }
+
     @Override
     public List<ZMistSecretInfo> listSecrets(String group, String appName, String namespace) {
         LambdaQueryWrapper<ZMistSecretInfo> wrapper = new LambdaQueryWrapper<>();
@@ -189,26 +216,56 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     /**
-     * P0: AES 加密.
+     * P0: AES 加密（默认取当前主密钥）.
+     * <p>
+     * 走 {@link MistCrypto}：AES/GCM + 随机 nonce，产出 {@code zm1:} 新格式。
+     * 历史实现是 {@code Cipher.getInstance("AES")}（= AES/ECB/PKCS5Padding），确定性加密、
+     * 泄露明文块结构，且同一明文两次密文完全相同。
      */
     private String encryptAES(String plainValue) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(getMasterKeyBytes(), "AES");
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.ENCRYPT_MODE, keySpec);
-        byte[] encrypted = cipher.doFinal(plainValue.getBytes(StandardCharsets.UTF_8));
-        return Base64.getEncoder().encodeToString(encrypted);
+        return MistCrypto.encrypt(plainValue, resolveMasterKey());
     }
 
     /**
-     * P0: AES 解密.
+     * P0: AES 解密（默认取当前主密钥）.
+     * <p>
+     * 带 {@code zm1:} 前缀走 GCM；不带前缀按存量 AES/ECB/PKCS5Padding 解 —— 存量密文不需要迁移。
      */
     private String decryptAES(String encryptedValue) throws Exception {
-        byte[] decoded = Base64.getDecoder().decode(encryptedValue);
-        SecretKeySpec keySpec = new SecretKeySpec(getMasterKeyBytes(), "AES");
-        Cipher cipher = Cipher.getInstance("AES");
-        cipher.init(Cipher.DECRYPT_MODE, keySpec);
-        byte[] decrypted = cipher.doFinal(decoded);
-        return new String(decrypted, StandardCharsets.UTF_8);
+        return MistCrypto.decrypt(encryptedValue, resolveMasterKey());
+    }
+
+    /**
+     * 用<b>显式给定</b>的主密钥解密（主密钥轮换用）.
+     * <p>
+     * 不碰 {@link #resolveMasterKey()}，因此不需要临时改 JVM 全局系统属性 ——
+     * 轮换过程中并发进来的普通读写请求不会读到"改到一半"的主密钥。
+     */
+    @Override
+    public String decryptValueWithKey(String encryptedValue, String algorithm, String masterKey) {
+        try {
+            if (Constance.EncryptAlgorithm.RSA.equals(algorithm)) {
+                return decryptRSA(encryptedValue);
+            }
+            return MistCrypto.decrypt(encryptedValue, masterKey);
+        } catch (Exception e) {
+            throw new RuntimeException("Decryption failed", e);
+        }
+    }
+
+    /**
+     * 用<b>显式给定</b>的主密钥加密（主密钥轮换用）。理由同 {@link #decryptValueWithKey}。
+     */
+    @Override
+    public String encryptValueWithKey(String plainValue, String algorithm, String masterKey) {
+        try {
+            if (Constance.EncryptAlgorithm.RSA.equals(algorithm)) {
+                return encryptRSA(plainValue);
+            }
+            return MistCrypto.encrypt(plainValue, masterKey);
+        } catch (Exception e) {
+            throw new RuntimeException("Encryption failed", e);
+        }
     }
 
     private String encryptRSA(String plainValue) throws Exception {
@@ -231,39 +288,54 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     /**
-     * 主密钥派生 RSA 2048 KeyPair,缓存避免重复生成(生成一次约 100ms).
+     * 主密钥派生 RSA 2048 KeyPair，进程内缓存（生成一次约 100ms）。
+     * <p>
+     * <b>注意：这个 KeyPair 是进程级的，跨重启不保留。</b>
+     * {@code new SecureRandom(seed)} 在现代 JDK 上<b>不</b>产生确定性序列
+     * （实测：同一 seed 连续两次派生，公钥不同），所以本方法做不到"可复现"；
+     * 重启后拿到的是全新 KeyPair，重启前落库的 RSA 密文再也解不开
+     * （实测 {@code BadPaddingException}），且没有历史私钥可回退。
+     * 因此 {@link #saveSecret} / {@link #updateSecret} 已拒绝以 RSA 落库。
      */
     private KeyPair getOrCreateRSAKeyPair() throws Exception {
         String mk = resolveMasterKey();
-        String cacheKey = "rsa:" + Integer.toHexString(mk.hashCode());
-        KeyPair kp = rsaKeyPairCache.get(cacheKey);
+        // 用完整主密钥做 cacheKey：早前用 Integer.toHexString(mk.hashCode())，
+        // 两个不同主密钥一旦 hashCode 碰撞就会共用同一个 KeyPair（拿对方的公钥加密、自己解不开）。
+        KeyPair kp = rsaKeyPairCache.get(mk);
         if (kp != null) {
             return kp;
         }
-        synchronized (cacheKey.intern()) {
-            kp = rsaKeyPairCache.get(cacheKey);
+        synchronized (rsaKeyPairLock) {
+            kp = rsaKeyPairCache.get(mk);
             if (kp != null) {
                 return kp;
             }
-            // 用主密钥 MD5 作为 RSA 种子,保证可复现
             byte[] seedBytes = MessageDigest.getInstance("MD5").digest(mk.getBytes(StandardCharsets.UTF_8));
             SecureRandom random = new SecureRandom(seedBytes);
             KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
             gen.initialize(2048, random);
             kp = gen.generateKeyPair();
-            rsaKeyPairCache.put(cacheKey, kp);
-            log.info("[z-mist] RSA KeyPair generated (2048 bits, alias={})", cacheKey);
+            rsaKeyPairCache.put(mk, kp);
+            // 日志里只打 keyId，不打主密钥本身
+            log.info("[z-mist] RSA KeyPair generated (2048 bits, keyId={})", keyIdOf(mk));
             return kp;
         }
     }
 
-    private byte[] getMasterKeyBytes() {
+    /**
+     * 主密钥的公开标识：SHA-256 前 4 字节十六进制，仅用于日志/展示，可安全外泄。
+     */
+    private static String keyIdOf(String masterKey) {
         try {
-            String mk = resolveMasterKey();
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            return md.digest(mk.getBytes(StandardCharsets.UTF_8));
+            byte[] d = MessageDigest.getInstance("SHA-256")
+                    .digest(masterKey.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(8);
+            for (int i = 0; i < 4; i++) {
+                sb.append(String.format("%02x", d[i]));
+            }
+            return sb.toString();
         } catch (Exception e) {
-            return DEFAULT_MASTER_KEY.getBytes(StandardCharsets.UTF_8);
+            return "unknown";
         }
     }
 
