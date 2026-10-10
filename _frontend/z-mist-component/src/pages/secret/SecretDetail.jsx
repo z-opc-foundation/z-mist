@@ -180,7 +180,7 @@ function SecretDetail() {
     if (!secret) {
         return (
             <div>
-                <Button icon={<ArrowLeftOutlined/>} onClick={() => navigate('/secret')}>返回</Button>
+                <Button icon={<ArrowLeftOutlined/>} onClick={() => navigate('/z-mist/secret')}>返回</Button>
                 <Alert type="error" message="密钥不存在" style={{marginTop: 16}}/>
             </div>
         )
@@ -189,7 +189,7 @@ function SecretDetail() {
     return (
         <div>
             <Space style={{marginBottom: 16}}>
-                <Button icon={<ArrowLeftOutlined/>} onClick={() => navigate('/secret')}>返回列表</Button>
+                <Button icon={<ArrowLeftOutlined/>} onClick={() => navigate('/z-mist/secret')}>返回列表</Button>
                 <Button icon={<HistoryOutlined/>} onClick={handleRotate} type="primary">立即轮换</Button>
                 <Button onClick={handleGenerateDynamic}>生成动态密钥</Button>
             </Space>

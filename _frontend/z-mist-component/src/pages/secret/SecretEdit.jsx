@@ -55,7 +55,7 @@ function SecretEdit() {
 
             if (res.success) {
                 message.success(isEdit ? '更新成功' : '创建成功')
-                navigate('/secret')
+                navigate('/z-mist/secret')
             } else {
                 message.error(res.message || '操作失败')
             }
@@ -70,7 +70,7 @@ function SecretEdit() {
         <div>
             <Button
                 icon={<ArrowLeftOutlined/>}
-                onClick={() => navigate('/secret')}
+                onClick={() => navigate('/z-mist/secret')}
                 style={{marginBottom: 16}}
             >
                 返回列表
@@ -156,7 +156,7 @@ function SecretEdit() {
                         <Button type="primary" htmlType="submit" loading={loading}>
                             {isEdit ? '更新' : '创建'}
                         </Button>
-                        <Button onClick={() => navigate('/secret')} style={{marginLeft: 8}}>
+                        <Button onClick={() => navigate('/z-mist/secret')} style={{marginLeft: 8}}>
                             取消
                         </Button>
                     </Form.Item>

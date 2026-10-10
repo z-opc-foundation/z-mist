@@ -158,13 +158,13 @@ function SecretList() {
             render: (_, record) => (
                 <Space size="small">
                     <Button type="link" icon={<EyeOutlined/>}
-                            onClick={() => navigate(`/secret/detail/${record.id}`)}>
+                            onClick={() => navigate(`/z-mist/secret/detail/${record.id}`)}>
                         详情
                     </Button>
                     <Button
                         type="link"
                         icon={<EditOutlined/>}
-                        onClick={() => navigate(`/secret/edit/${record.id}`)}
+                        onClick={() => navigate(`/z-mist/secret/edit/${record.id}`)}
                     >
                         编辑
                     </Button>
@@ -211,7 +211,7 @@ function SecretList() {
                     <Button
                         type="primary"
                         icon={<PlusOutlined/>}
-                        onClick={() => navigate('/secret/add')}
+                        onClick={() => navigate('/z-mist/secret/add')}
                     >
                         新增密钥
                     </Button>

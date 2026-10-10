@@ -16,7 +16,7 @@ function Login() {
                 localStorage.setItem('token', res.data.token)
                 localStorage.setItem('username', res.data.username || values.username)
                 message.success(`欢迎 ${res.data.username || values.username}`)
-                navigate('/dashboard')
+                navigate('/z-mist/dashboard')
             } else {
                 message.error(res.message || '登录失败')
             }
