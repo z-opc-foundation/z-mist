@@ -32,7 +32,7 @@ export const menuItems = [
     { key: '/z-mist/log', label: '访问日志', icon: <FileTextOutlined /> },
 ]
 
-export const routeTable = [
+export const routes = [
     { path: '/z-mist/home', Component: HomePage },
     { path: '/z-mist/dashboard', Component: Dashboard },
     { path: '/z-mist/secret', Component: SecretList },
