@@ -17,6 +17,7 @@ import AccessLog from './pages/log/AccessLog'
 export {default as Dashboard} from './pages/dashboard/Dashboard'
 export {default as Login} from './pages/login/Login'
 import HomePage from './pages/HomePage'
+import MistApp from './pages/MistApp.jsx'
 
 /** 菜单 + 路由清单（lead 008 §10/§14/§16 批量落地）。App 壳在 suit 侧组装。 */
 export const appMeta = { title: 'z-mist 密钥管理', short: 'z-mist' }
@@ -44,6 +45,7 @@ export const routes = [
     { path: '/z-mist/acl', Component: AclManage },
     { path: '/z-mist/app', Component: AppManage },
     { path: '/z-mist/log', Component: AccessLog },
+    { path: '/z-mist/:rest*', Component: MistApp },
 ]
 
 export { default as HomePage } from './pages/HomePage'
