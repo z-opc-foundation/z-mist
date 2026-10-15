@@ -1,7 +1,6 @@
 package com.zifang.z.mist.client.support;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zifang.util.core.json.JsonMapperFactory;
+import com.zifang.util.json.JsonUtil;
 import com.zifang.z.mist.common.connect.CommandType;
 import com.zifang.z.mist.common.connect.message.Message;
 import com.zifang.z.mist.common.connect.message.NormalMessage;
@@ -25,7 +24,6 @@ import java.util.concurrent.CountDownLatch;
 public class ClientBusinessHandler extends SimpleChannelInboundHandler<Message> {
 
     private static final Logger logger = LogManager.getLogger(ClientBusinessHandler.class);
-    private static final ObjectMapper objectMapper = JsonMapperFactory.getDefault();
     private final Map<String, CountDownLatch> responseMap = new ConcurrentHashMap<>();
     private final Map<String, String> secretCache = new ConcurrentHashMap<>();
     private String appName;
@@ -117,7 +115,7 @@ public class ClientBusinessHandler extends SimpleChannelInboundHandler<Message> 
             Map<String, String> authData = new HashMap<>();
             authData.put("appName", appName);
             authData.put("appSecret", appSecret);
-            authRequest.setBody(objectMapper.writeValueAsString(authData));
+            authRequest.setBody(JsonUtil.toJsonExcludingNulls(authData));
             ctx.writeAndFlush(authRequest);
         } catch (Exception e) {
             logger.error("Failed to send auth request", e);

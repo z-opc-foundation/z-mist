@@ -112,6 +112,28 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- z-util 抬到 1.2.0（去 Jackson 那版）：ClientBusinessHandler 改用自研 JsonUtil
+                 （com.zifang.util.json.*），JsonMapperFactory 已从 z-util 删除。
+                 继承来的 z-boot 车队 BOM 仍把 z-util 钉在 1.0.22，那版里 JsonMapperFactory
+                 还在、JsonCursor 也没有 ⇒ 不显式钉 1.2.0 就编译不过。
+                 ⚠ dsl-kernel 必须同笔钉：parser-json 1.2.0 的 pom 依赖 dsl-kernel 1.2.0，
+                 而 DM 对**传递依赖**同样生效，只钉 parser-json 会被车队 BOM 压回旧版，
+                 造成运行期版本裂开。 -->
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-util-core</artifactId>
+                <version>1.2.1</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-util-parser-json</artifactId>
+                <version>1.2.1</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-util-dsl-kernel</artifactId>
+                <version>1.2.1</version>
+            </dependency>
             <!-- Spring Boot BOM 的 import 删掉：父链 z-boot-dependencies:1.0.19 自己 import 了
                  同版本 spring-boot-dependencies(2.7.18)，本仓再 import 一遍只是把"谁先声明谁赢"
                  的排序留在仓里——这正是迁移前 netty 家族被 Boot 的 netty-bom 压成 4.1.101、
