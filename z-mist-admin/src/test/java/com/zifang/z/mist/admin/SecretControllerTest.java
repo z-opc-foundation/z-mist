@@ -1,10 +1,12 @@
 package com.zifang.z.mist.admin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zifang.z.mist.common.convert.ResultJsonMessageConverter;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -88,7 +90,13 @@ public class SecretControllerTest {
         f.setAccessible(true);
         f.set(controller, proxy);
 
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        // standaloneSetup 默认只挂 Jackson 转换器，而线上 Result 走的是自定义的
+        // ResultJsonMessageConverter——不显式挂上，这条测试量的就不是线上那条路了
+        // （Jackson 现在会把 message:null / data:null 也吐出来，断言却照样过）。
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setMessageConverters(new HttpMessageConverters(new ResultJsonMessageConverter())
+                        .getConverters().toArray(new org.springframework.http.converter.HttpMessageConverter<?>[0]))
+                .build();
     }
 
     @Test

@@ -1,6 +1,6 @@
 package com.zifang.z.mist.common;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.zifang.util.json.annotation.JsonType;
 
 import java.io.Serializable;
 
@@ -9,14 +9,18 @@ import java.io.Serializable;
  *
  * <p>序列化字段与历史 {@code Map<String, Object>} 返回完全一致:
  * {@code success(boolean)} / {@code message(String)} / {@code data(T)},
- * 不额外输出 code 等任何字段;值为 {@code null} 的字段不输出
- * ({@link JsonInclude.Include#NON_NULL}),保证与原 HashMap 返回的 JSON 形状零变化。
+ * 不额外输出 code 等任何字段;值为 {@code null} 的字段不输出,保证与原 HashMap 返回的 JSON 形状零变化。
+ *
+ * <p>原先这条「null 字段不出键」靠类上的 {@code @JsonInclude(NON_NULL)} 表达,注解已摘。
+ * 现在由 {@code ResultJsonMessageConverter} 在出站时交给 JsonUtil 序列化,
+ * 而「只丢本信封这三个字段的 null、不牵连 data 里各 Resp 的可空字段」这个范围
+ * 正是类级 {@link JsonType#nonNull()} 的语义——换 mapper 级全局 NON_NULL 会波及其它响应体。
  *
  * @param <T> data 的类型
  * @author zifang
  * @since 1.0.0
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonType(nonNull = true)
 public class Result<T> implements Serializable {
 
     private static final long serialVersionUID = 1L;

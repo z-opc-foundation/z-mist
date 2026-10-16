@@ -10,7 +10,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *
  * <p>职责:
  * <ul>
- *   <li>@ComponentScan 扫描 z-mist-web/api (controllers) + z-mist-web/config (configs) + z-mist-web/scheduler</li>
+ *   <li>@ComponentScan 扫描 z-mist-web/api (controllers) + z-mist-web/config (configs) + z-mist-web/scheduler
+ *       + z-mist-common/convert（统一信封 Result 的出站转换器，admin 那边是整包扫描天然覆盖）</li>
  *   <li>@EnableScheduling 启用 @Scheduled 定时任务(轮换/过期告警/统计聚合)</li>
  *   <li>依赖 z-mist-core: 业务 entity/mapper/service 也会被 Spring 找到 (因 core 的 @MapperScan 在 z-mist-core/.../config 下)</li>
  * </ul>
@@ -27,7 +28,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         basePackages = {
                 "com.zifang.z.mist.web.api",
                 "com.zifang.z.mist.web.config",
-                "com.zifang.z.mist.web.scheduler"
+                "com.zifang.z.mist.web.scheduler",
+                "com.zifang.z.mist.common.convert"
         },
         nameGenerator = FullyQualifiedAnnotationBeanNameGenerator.class
 )
