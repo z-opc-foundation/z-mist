@@ -118,21 +118,24 @@
                  还在、JsonCursor 也没有 ⇒ 不显式钉 1.2.0 就编译不过。
                  ⚠ dsl-kernel 必须同笔钉：parser-json 1.2.0 的 pom 依赖 dsl-kernel 1.2.0，
                  而 DM 对**传递依赖**同样生效，只钉 parser-json 会被车队 BOM 压回旧版，
-                 造成运行期版本裂开。 -->
+                 造成运行期版本裂开。
+                 1.2.6 起为了把统一信封 Result 的 NON_NULL 从 Jackson 注解挪到 JsonUtil：
+                 类级 @JsonType(nonNull=true) 是 1.2.5 才有的能力，1.2.6 另有逐字段
+                 @JsonSerialize(nonNull=true)。 -->
             <dependency>
                 <groupId>io.github.yuku123</groupId>
                 <artifactId>z-util-core</artifactId>
-                <version>1.2.1</version>
+                <version>1.2.6</version>
             </dependency>
             <dependency>
                 <groupId>io.github.yuku123</groupId>
                 <artifactId>z-util-parser-json</artifactId>
-                <version>1.2.1</version>
+                <version>1.2.6</version>
             </dependency>
             <dependency>
                 <groupId>io.github.yuku123</groupId>
                 <artifactId>z-util-dsl-kernel</artifactId>
-                <version>1.2.1</version>
+                <version>1.2.6</version>
             </dependency>
             <!-- Spring Boot BOM 的 import 删掉：父链 z-boot-dependencies:1.0.19 自己 import 了
                  同版本 spring-boot-dependencies(2.7.18)，本仓再 import 一遍只是把"谁先声明谁赢"
