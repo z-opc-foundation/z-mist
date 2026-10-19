@@ -5,16 +5,16 @@
 
 ## 0. 凭据泄露历史与消除记录(2026-09-15)
 
-- **背景**:z-mist 拆出时(2026-09-06,commit 693c375)从 z-opc monorepo 直接拷出 application.yml,内含明文 RDS 密码 `<REDACTED:值在 lead/004_重要秘钥/z-opc.env>` 与 `1qaz2wsx3edc`,已通过 commit 公开到 GitHub 网络
+- **背景**:z-mist 拆出时(2026-09-06,commit 693c375)从 z-opc monorepo 直接拷出 application.yml,内含明文 RDS 密码 `<REDACTED:值在 lead/004_重要秘钥/z-opc.env>` 与另一条明文口令 `<REDACTED:同上>`,已通过 commit 公开到 GitHub 网络
 - **风险评估判定**(组织 lead 2026-09-16):**commit 历史塌缩(force-push 后远端不可见)即视为凭据风险消除**,不再额外要求重置 RDS 密码
   - 理由:第三方扫描工具(fork 镜像 / Google cache / GitHub event log)无法直接命中被 force-push 覆盖的 commit SHA;自动化扫描器对历史的依赖性强
 - **执行**:
   1. 删 `.git` 重新 init → 单一 commit 4f8e817(working tree 全部清理)→ 本地无泄露
   2. force-push 后远端 HEAD 指向 4f8e817,693c375 不再可达
   3. 本地敏感词扫描结果(2026-09-16 验证):
-     - `Hhzemol`: 0 commits + 0 files
-     - `1qaz2wsx3edc`: 0 commits + 0 files
-     - `rm-bp108uqlgwn712k72z`: 0 commits + 0 files
+     - 敏感词 A（旧 RDS 口令字面量，词表见 lead 001_凭证管理规范）: 0 commits + 0 files
+     - 敏感词 B（另一条旧口令字面量，同上）: 0 commits + 0 files
+     - RDS 主机名片段: 0 commits + 0 files
      - `mysql.rds.aliyuncs.com`: 0 commits + 0 files
   4. 中央发版走 io.github.yuku123 namespace + GPG 签名,artifact 不含任何明文凭据
 

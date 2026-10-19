@@ -205,7 +205,7 @@ MIT License，见根 [`LICENSE`](LICENSE)。
   - [`00-overview.md`](_doc/001_arch/00-overview.md)
 - [`_doc/002_deploy/`](_doc/002_deploy/) — 部署：
   - [`init.sql`](_doc/002_deploy/init.sql) — 建库建表初始化 SQL
-  - [`z-mist-admin.md`](_doc/002_deploy/z-mist-admin.md) — admin 演示应用部署说明
+  - [`01-deploy-runbook.md`](_doc/002_deploy/01-deploy-runbook.md) — admin 演示应用部署说明
 - [`_doc/003_script/`](_doc/003_script/) — 运维脚本与基线记录：
   - [`build.sh`](_doc/003_script/build.sh)
   - [`demo.sh`](_doc/003_script/demo.sh)
