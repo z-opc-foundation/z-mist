@@ -60,14 +60,15 @@ z-mist/
 ├── z-mist-web/            # Spring Boot Starter：REST 控制器 + 自动装配 + 模块数据源 + 调度器 + Knife4j/Security
 ├── z-mist-client/         # 客户端 SDK：MistClient（Netty 长连接）+ ClientBusinessHandler
 ├── z-mist-sdk/            # 可执行 fat-jar 演示（maven-shade-plugin，Main 为占位入口）
-├── z-mist-admin/          # 独立可启动演示应用（不进 reactor，不上 Maven Central）
+├── z-mist-admin/          # 独立可启动演示应用（在 reactor 内，不上 Maven Central）
 ├── _frontend/             # z-mist-admin 前端源码：React + Ant Design + Vite（不进 reactor）
 ├── Dockerfile             # 基于 eclipse-temurin:8-jdk，EXPOSE 8080
 └── _doc/                  # 文档，见文末「文档目录」
 ```
 
-进入 Maven reactor 的只有 5 个模块（`common` / `core` / `web` / `client` / `sdk`）；
-`z-mist-admin` 与 `_frontend` 不在 `<modules>` 中，仅本地构建，**不会发布到 Maven Central**。
+进入 Maven reactor 的是 6 个模块（`common` / `core` / `web` / `client` / `sdk` / `admin`）；
+`_frontend` 不在 `<modules>` 中，仅本地构建；`z-mist-admin` 在 reactor 内，但 central profile 用
+`<excludeArtifact>z-mist-admin</excludeArtifact>` 把它挡在发布包外，**不会发布到 Maven Central**。
 
 > 注意 `z-mist-sdk` 的 shade 插件 `<mainClass>` 仍写着迁移前包名 `io.github.yuku123.z.mist.sdk.Main`，
 > 而源码已随全仓迁到 `com.zifang.z.mist.sdk.Main`，且 `Main` 目前只打印版本占位，尚未是功能演示。
@@ -96,7 +97,7 @@ z-mist/
 
 ## 🚀 快速开始
 
-### 编译（reactor 5 模块 + 装本地仓）
+### 编译（reactor 6 模块 + 装本地仓）
 
 ```bash
 mvn clean install -DskipTests
@@ -116,8 +117,8 @@ export Z_MIST_DB_HOST=127.0.0.1 Z_MIST_DB_PORT=3306 Z_MIST_DB_NAME=z_mist \
 mvn -pl z-mist-admin spring-boot:run
 ```
 
-> `z-mist-admin` 不在 reactor，需先完成上一步 install 再单独跑；其 `spring-boot-maven-plugin` 的 `repackage`
-> 被设为 `skip=true`（输出普通 library jar），因此走 `spring-boot:run` 而非 `java -jar`。
+> `z-mist-admin` 已在 reactor 内，可直接 `mvn -pl z-mist-admin spring-boot:run`；其 `spring-boot-maven-plugin`
+> 的 `repackage` 被设为 `skip=true`（输出普通 library jar），因此走 `spring-boot:run` 而非 `java -jar`。
 > HTTP 监听 `8080`（无 context-path），Knife4j 文档 `http://localhost:8080/doc.html`。
 
 ### 数据源与密钥配置
@@ -166,9 +167,10 @@ HTTP 默认端口 `8080`，无 context-path；路径与上表控制器一致（�
 mvn test
 ```
 
-reactor 内 `z-mist-core` + `z-mist-web` 的单测（对齐前基线为 39 项、全绿）。注意：
+reactor 内 `z-mist-common` / `z-mist-core` / `z-mist-web` / `z-mist-admin` 四个模块都有单测，根 `mvn test`
+一并执行、全绿（对齐前基线为 39 项）。注意：
 
-- `z-mist-admin` 不在 reactor，其 `SecretControllerTest`（`@SpringBootTest`，需连真实/临时 MySQL）不会随根 `mvn test` 执行。
+- `z-mist-admin` 在 reactor 内，其 `SecretControllerTest`（`@SpringBootTest`，用 mock 桩件、不连真实 MySQL）会随根 `mvn test` 一并执行。
 - `z-mist-client` 的 `SecretsPreloader` 是示例/预置类而非断言用例。
 - 组织口径对 Mockito / `@SpringBootTest` 有限制（见 `_doc/003_script/对齐前_基线.txt` 体检记录），后续重构需按 9 步对齐收敛。
 
