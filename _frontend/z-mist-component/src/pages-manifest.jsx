@@ -1,4 +1,4 @@
-import { AppstoreOutlined, DashboardOutlined, FileTextOutlined, HomeOutlined, KeyOutlined, LockOutlined, ReloadOutlined, SafetyOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, DashboardOutlined, FileTextOutlined, HomeOutlined, KeyOutlined, LockOutlined, ReadOutlined, ReloadOutlined, SafetyOutlined } from '@ant-design/icons'
 import Login from './pages/login/Login'
 import Dashboard from './pages/dashboard/Dashboard'
 import SecretList from './pages/secret/SecretList'
@@ -18,6 +18,7 @@ export {default as Dashboard} from './pages/dashboard/Dashboard'
 export {default as Login} from './pages/login/Login'
 import HomePage from './pages/HomePage'
 import MistApp from './pages/MistApp.jsx'
+import ComponentDocPage from './pages/ComponentDoc.jsx'
 
 /** 菜单 + 路由清单（lead 008 §10/§14/§16 批量落地）。App 壳在 suit 侧组装。 */
 export const appMeta = { title: 'z-mist 密钥管理', short: 'z-mist' }
@@ -31,6 +32,7 @@ export const menuItems = [
     { key: '/z-mist/acl', label: '授权管理', icon: <SafetyOutlined /> },
     { key: '/z-mist/app', label: '应用管理', icon: <AppstoreOutlined /> },
     { key: '/z-mist/log', label: '访问日志', icon: <FileTextOutlined /> },
+    { key: '/z-mist/docs', label: '组件文档', icon: <ReadOutlined /> },
 ]
 
 export const routes = [
@@ -45,8 +47,11 @@ export const routes = [
     { path: '/z-mist/acl', Component: AclManage },
     { path: '/z-mist/app', Component: AppManage },
     { path: '/z-mist/log', Component: AccessLog },
+    { path: '/z-mist/docs', Component: ComponentDocPage },
     { path: '/z-mist/:rest*', Component: MistApp },
 ]
 
 export { default as HomePage } from './pages/HomePage'
 export { default as LoginPage } from './pages/LoginPage'
+// 主壳接线用：文档页统一以 ComponentDocPage 这个名字从主入口导出。
+export { default as ComponentDocPage } from './pages/ComponentDoc.jsx'
