@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
-import {Button, Card, Form, Input, InputNumber, message, Modal, Select, Space, Switch, Table, Tag} from 'antd'
+import {Button, Form, Input, InputNumber, message, Modal, Select, Space, Switch, Tag} from 'antd'
 import {DeleteOutlined, EditOutlined, PlayCircleOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons'
-import {EmptyState, ErrorState, TableToolbar} from '@yuku123/z-frontend-common/ui'
+import {ErrorState, ListTable} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -122,103 +122,109 @@ function RotationPolicy() {
 
     return (
         <div>
-            <Card title="轮换策略">
-                {error && (
-                    <div style={{marginBottom: 16}}>
-                        <ErrorState error={error} title="查询策略失败" onRetry={() => fetchPolicies()}/>
-                    </div>
-                )}
-                <TableToolbar
-                    right={
-                        <>
-                            <Button icon={<ReloadOutlined/>} onClick={fetchPolicies}>刷新</Button>
-                            <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建策略</Button>
-                        </>
-                    }
-                />
-                <Table
-                    loading={loading}
-                    rowKey="id"
-                    dataSource={policies}
-                    pagination={{pageSize: 10}}
-                    columns={[
-                        {title: 'ID', dataIndex: 'id', width: 60},
-                        {title: '密钥标识', dataIndex: 'secretKey'},
-                        {title: '分组', dataIndex: 'group', width: 110},
-                        {title: '命名空间', dataIndex: 'namespace', width: 110},
-                        {
-                            title: 'cron', dataIndex: 'cronExpression', width: 150,
-                            render: (c) => <code>{c}</code>
-                        },
-                        {
-                            title: '策略', dataIndex: 'rotationStrategy', width: 80,
-                            render: (s) => <Tag color={s === 'auto' ? 'blue' : 'orange'}>{s}</Tag>
-                        },
-                        {title: '新值长度', dataIndex: 'newValueLength', width: 90},
-                        {
-                            title: '启用', dataIndex: 'enabled', width: 70,
-                            render: (e) => <Tag color={e === 1 ? 'green' : 'default'}>{e === 1 ? '是' : '否'}</Tag>
-                        },
-                        {
-                            title: '上次轮换', dataIndex: 'lastRotationTime', width: 170,
-                            render: (t) => t ? new Date(t).toLocaleString() : '从未'
-                        },
-                        {
-                            title: '下次轮换', dataIndex: 'nextRotationTime', width: 170,
-                            render: (t) => t ? new Date(t).toLocaleString() : '-'
-                        },
-                        {
-                            title: '操作', width: 240, fixed: 'right',
-                            render: (_, r) => (
-                                <Space size="small">
-                                    <Button type="link" icon={<PlayCircleOutlined/>}
-                                            onClick={() => handleTrigger(r)}>立即触发</Button>
-                                    <Button type="link" icon={<EditOutlined/>}
-                                            onClick={() => handleEdit(r)}>编辑</Button>
-                                    <Button type="link" danger icon={<DeleteOutlined/>}
-                                            onClick={() => handleDelete(r)}>删除</Button>
-                                </Space>
-                            )
-                        },
-                    ]}
-                    locale={{emptyText: <EmptyState title="暂无轮换策略" description="点「新建策略」给密钥配一条自动轮换规则"/>}}
-                />
-            </Card>
+            {error && (
+                <div style={{marginBottom: 16}}>
+                    <ErrorState error={error} title="查询策略失败" onRetry={() => fetchPolicies()}/>
+                </div>
+            )}
 
-            <Card title="轮换历史" style={{marginTop: 16}}>
-                {historyError && (
-                    <div style={{marginBottom: 16}}>
-                        <ErrorState error={historyError} title="查询轮换历史失败" onRetry={() => fetchHistory()}/>
-                    </div>
-                )}
-                <Table
-                    rowKey="id"
-                    dataSource={history}
-                    pagination={{pageSize: 10}}
-                    locale={{emptyText: <EmptyState title="暂无轮换记录" description="策略触发后这里会留下每次轮换的痕迹" size="sm"/>}}
-                    columns={[
-                        {title: 'ID', dataIndex: 'id', width: 60},
-                        {title: '密钥', dataIndex: 'secretKey', ellipsis: true},
-                        {title: '策略ID', dataIndex: 'policyId', width: 80},
-                        {title: '旧版本', dataIndex: 'oldVersion', width: 80},
-                        {title: '新版本', dataIndex: 'newVersion', width: 80},
-                        {
-                            title: '触发方式', dataIndex: 'triggerType', width: 100,
-                            render: (t) => <Tag
-                                color={t === 'cron' ? 'blue' : t === 'manual' ? 'orange' : 'default'}>{t}</Tag>
-                        },
-                        {
-                            title: '成功', dataIndex: 'success', width: 80,
-                            render: (s) => <Tag color={s === 1 ? 'green' : 'red'}>{s === 1 ? '是' : '否'}</Tag>
-                        },
-                        {title: '错误信息', dataIndex: 'errorMessage', ellipsis: true},
-                        {
-                            title: '时间', dataIndex: 'gmtCreate', width: 170,
-                            render: (t) => t ? new Date(t).toLocaleString() : '-'
-                        },
-                    ]}
-                />
-            </Card>
+            {/* 两张表都走基座 ListTable（lead 008 §2 规则 2/3/4）。
+                策略/历史都是一次性全量拉回（current=1&size=100 / size=50），
+                所以用基座默认的客户端分页 + 端侧过滤（searchKeys），动作按钮放 cardExtra。 */}
+            <ListTable
+                cardTitle="轮换策略"
+                rows={policies}
+                columns={[
+                    {title: 'ID', dataIndex: 'id', width: 60},
+                    {title: '密钥标识', dataIndex: 'secretKey'},
+                    {title: '分组', dataIndex: 'group', width: 110},
+                    {title: '命名空间', dataIndex: 'namespace', width: 110},
+                    {
+                        title: 'cron', dataIndex: 'cronExpression', width: 150,
+                        render: (c) => <code>{c}</code>
+                    },
+                    {
+                        title: '策略', dataIndex: 'rotationStrategy', width: 80,
+                        render: (s) => <Tag color={s === 'auto' ? 'blue' : 'orange'}>{s}</Tag>
+                    },
+                    {title: '新值长度', dataIndex: 'newValueLength', width: 90},
+                    {
+                        title: '启用', dataIndex: 'enabled', width: 70,
+                        render: (e) => <Tag color={e === 1 ? 'green' : 'default'}>{e === 1 ? '是' : '否'}</Tag>
+                    },
+                    {
+                        title: '上次轮换', dataIndex: 'lastRotationTime', width: 170,
+                        render: (t) => t ? new Date(t).toLocaleString() : '从未'
+                    },
+                    {
+                        title: '下次轮换', dataIndex: 'nextRotationTime', width: 170,
+                        render: (t) => t ? new Date(t).toLocaleString() : '-'
+                    },
+                    {
+                        title: '操作', width: 240, fixed: 'right',
+                        render: (_, r) => (
+                            <Space size="small">
+                                <Button type="link" icon={<PlayCircleOutlined/>}
+                                        onClick={() => handleTrigger(r)}>立即触发</Button>
+                                <Button type="link" icon={<EditOutlined/>}
+                                        onClick={() => handleEdit(r)}>编辑</Button>
+                                <Button type="link" danger icon={<DeleteOutlined/>}
+                                        onClick={() => handleDelete(r)}>删除</Button>
+                            </Space>
+                        )
+                    },
+                ]}
+                rowKey="id"
+                loading={loading}
+                searchKeys="secretKey,group,namespace"
+                searchPlaceholder="按密钥标识 / 分组 / 命名空间过滤"
+                emptyTitle="暂无轮换策略"
+                emptyDescription="点「新建策略」给密钥配一条自动轮换规则"
+                cardExtra={
+                    <Space>
+                        <Button icon={<ReloadOutlined/>} onClick={fetchPolicies}>刷新</Button>
+                        <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建策略</Button>
+                    </Space>
+                }
+            />
+
+            {historyError && (
+                <div style={{marginTop: 16, marginBottom: 16}}>
+                    <ErrorState error={historyError} title="查询轮换历史失败" onRetry={() => fetchHistory()}/>
+                </div>
+            )}
+
+            <ListTable
+                cardTitle="轮换历史"
+                rows={history}
+                columns={[
+                    {title: 'ID', dataIndex: 'id', width: 60},
+                    {title: '密钥', dataIndex: 'secretKey', ellipsis: true},
+                    {title: '策略ID', dataIndex: 'policyId', width: 80},
+                    {title: '旧版本', dataIndex: 'oldVersion', width: 80},
+                    {title: '新版本', dataIndex: 'newVersion', width: 80},
+                    {
+                        title: '触发方式', dataIndex: 'triggerType', width: 100,
+                        render: (t) => <Tag
+                            color={t === 'cron' ? 'blue' : t === 'manual' ? 'orange' : 'default'}>{t}</Tag>
+                    },
+                    {
+                        title: '成功', dataIndex: 'success', width: 80,
+                        render: (s) => <Tag color={s === 1 ? 'green' : 'red'}>{s === 1 ? '是' : '否'}</Tag>
+                    },
+                    {title: '错误信息', dataIndex: 'errorMessage', ellipsis: true},
+                    {
+                        title: '时间', dataIndex: 'gmtCreate', width: 170,
+                        render: (t) => t ? new Date(t).toLocaleString() : '-'
+                    },
+                ]}
+                rowKey="id"
+                searchKeys="secretKey,errorMessage"
+                searchPlaceholder="按密钥标识 / 错误信息过滤"
+                emptyTitle="暂无轮换记录"
+                emptyDescription="策略触发后这里会留下每次轮换的痕迹"
+                cardProps={{style: {marginTop: 16}}}
+            />
 
             <Modal
                 title={editing ? '编辑策略' : '新建策略'}

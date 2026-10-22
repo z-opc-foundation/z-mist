@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
-import {Button, message, Modal, Space, Table, Tag} from 'antd'
+import {Button, message, Modal, Space, Tag} from 'antd'
 import {
     DeleteOutlined,
     EditOutlined,
@@ -9,7 +9,7 @@ import {
     PlusOutlined,
     ReloadOutlined,
 } from '@ant-design/icons'
-import {EmptyState, SearchInput, TableToolbar} from '@yuku123/z-frontend-common/ui'
+import {ListTable, SearchInput} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 import SecretValueDisplay from './SecretValueDisplay'
 
@@ -192,22 +192,30 @@ function SecretList() {
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>密钥管理</h2>
             </div>
-            {/* 工具条走共享 TableToolbar：左侧搜索、右侧操作（lead 008 全仓统一布局） */}
-            <TableToolbar
-                left={
-                    <SearchInput
-                        placeholder="搜索密钥标识/名称/描述/应用"
-                        value={keyword}
-                        onChange={setKeyword}
-                        onSearch={(v) => {
-                            setKeyword(v)
-                            fetchData(v)
-                        }}
-                        width={320}
-                    />
-                }
-                right={
-                    <>
+            {/* 列表页走基座 ListTable（lead 008 §2 规则 2/3/4）：分页 / 过滤 / EmptyState 三件套。
+                搜索走后端（/secret/search?keyword=），不是端侧过滤 ⇒ **不传 searchKeys**，
+                否则页面上会出现两个搜索框；动作按钮放 cardExtra。
+                密钥列表是一次性全量拉回的，分页用基座默认的客户端分页。 */}
+            <ListTable
+                rows={data}
+                columns={columns}
+                rowKey="id"
+                loading={loading}
+                scroll={{x: 1200}}
+                emptyTitle="暂无密钥"
+                emptyDescription="点右上角「新增密钥」创建第一个"
+                cardExtra={
+                    <Space>
+                        <SearchInput
+                            placeholder="搜索密钥标识/名称/描述/应用"
+                            value={keyword}
+                            onChange={setKeyword}
+                            onSearch={(v) => {
+                                setKeyword(v)
+                                fetchData(v)
+                            }}
+                            width={320}
+                        />
                         <Button icon={<ReloadOutlined/>} onClick={() => {
                             setKeyword('');
                             fetchData('')
@@ -221,17 +229,8 @@ function SecretList() {
                         >
                             新增密钥
                         </Button>
-                    </>
+                    </Space>
                 }
-            />
-            <Table
-                columns={columns}
-                dataSource={data}
-                loading={loading}
-                rowKey="id"
-                pagination={{pageSize: 10, showSizeChanger: true}}
-                scroll={{x: 1200}}
-                locale={{emptyText: <EmptyState title="暂无密钥" description="点右上角「新增密钥」创建第一个"/>}}
             />
 
             <Modal

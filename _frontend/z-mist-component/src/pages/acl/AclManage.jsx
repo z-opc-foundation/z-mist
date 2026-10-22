@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
-import {Button, Card, Form, Input, message, Modal, Select, Space, Table, Tag} from 'antd'
+import {Button, Form, Input, message, Modal, Select, Space, Tag} from 'antd'
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SafetyOutlined} from '@ant-design/icons'
-import {EmptyState, ErrorState, TableToolbar} from '@yuku123/z-frontend-common/ui'
+import {ErrorState, ListTable, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -101,102 +101,107 @@ function AclManage() {
 
     return (
         <div>
-            <Card>
-                {error && (
-                    <div style={{marginBottom: 16}}>
-                        <ErrorState error={error} title="获取授权列表失败" onRetry={() => fetchData()}/>
-                    </div>
-                )}
-                <TableToolbar
-                    left={
-                        <>
-                            <Input placeholder="密钥标识" allowClear
-                                   value={filters.secretKey}
-                                   onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
-                                   style={{width: 180}}/>
-                            <Input placeholder="授权应用" allowClear
-                                   value={filters.authorizedApp}
-                                   onChange={(e) => setFilters({...filters, authorizedApp: e.target.value})}
-                                   style={{width: 180}}/>
-                            <Select placeholder="环境" allowClear
-                                    value={filters.authorizedEnv || undefined}
-                                    onChange={(v) => setFilters({...filters, authorizedEnv: v || ''})}
-                                    style={{width: 120}}>
-                                <Option value="dev">dev</Option>
-                                <Option value="test">test</Option>
-                                <Option value="pre">pre</Option>
-                                <Option value="prod">prod</Option>
-                            </Select>
-                            <Input placeholder="命名空间" allowClear
-                                   value={filters.namespace}
-                                   onChange={(e) => setFilters({...filters, namespace: e.target.value})}
-                                   style={{width: 140}}/>
-                        </>
-                    }
-                    right={
-                        <>
-                            <Button type="primary" icon={<SafetyOutlined/>} onClick={() => {
-                                setPage(1);
-                                fetchData()
-                            }}>查询</Button>
-                            <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
-                            <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建授权</Button>
-                        </>
-                    }
-                />
+            {error && (
+                <div style={{marginBottom: 16}}>
+                    <ErrorState error={error} title="获取授权列表失败" onRetry={() => fetchData()}/>
+                </div>
+            )}
 
-                <Table
-                    loading={loading}
-                    rowKey="id"
-                    dataSource={data}
-                    pagination={{
-                        current: page, pageSize: size, total,
-                        showSizeChanger: true,
-                        onChange: (p, s) => {
-                            setPage(p);
-                            setSize(s)
-                        }
-                    }}
-                    columns={[
-                        {title: 'ID', dataIndex: 'id', width: 60},
-                        {title: '密钥', dataIndex: 'secretKey', ellipsis: true},
-                        {title: '分组', dataIndex: 'group', width: 110},
-                        {title: '命名空间', dataIndex: 'namespace', width: 110},
-                        {
-                            title: '授权应用', dataIndex: 'authorizedApp',
-                            render: (s) => <Tag color="blue">{s}</Tag>
-                        },
-                        {
-                            title: '环境', dataIndex: 'authorizedEnv', width: 80,
-                            render: (e) => e ? <Tag>{e}</Tag> : <Tag color="default">ALL</Tag>
-                        },
-                        {
-                            title: '权限级别', dataIndex: 'permissionLevel', width: 100,
-                            render: (l) => <Tag color={l === 'decrypt' ? 'orange' : 'green'}>{l}</Tag>
-                        },
-                        {
-                            title: '过期时间', dataIndex: 'expireTime', width: 170,
-                            render: (t) => t ? new Date(t).toLocaleString() : '永久'
-                        },
-                        {
-                            title: '创建时间', dataIndex: 'gmtCreate', width: 170,
-                            render: (t) => t ? new Date(t).toLocaleString() : '-'
-                        },
-                        {
-                            title: '操作', width: 150, fixed: 'right',
-                            render: (_, r) => (
-                                <Space size="small">
-                                    <Button type="link" icon={<EditOutlined/>}
-                                            onClick={() => handleEdit(r)}>编辑</Button>
-                                    <Button type="link" danger icon={<DeleteOutlined/>}
-                                            onClick={() => handleDelete(r)}>删除</Button>
-                                </Space>
-                            )
-                        },
-                    ]}
-                    locale={{emptyText: <EmptyState title="暂无授权" description="点「新建授权」给应用开一把钥匙"/>}}
-                />
-            </Card>
+            {/* 筛选条件走后端（/acl/page 的 secretKey/authorizedApp/authorizedEnv/namespace 参数），
+                是一张查询表单而不是端侧过滤，所以保留在卡片上方的 TableToolbar，
+                **不接基座 searchKeys**（否则页面上会出现两个搜索框）。
+                动作按钮（查询 / 刷新 / 新建授权）放 cardExtra。
+                列表是**服务端分页**，翻页重新请求后端 ⇒ 保留原分页对象，不套客户端分页。 */}
+            <TableToolbar
+                left={
+                    <>
+                        <Input placeholder="密钥标识" allowClear
+                               value={filters.secretKey}
+                               onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
+                               style={{width: 180}}/>
+                        <Input placeholder="授权应用" allowClear
+                               value={filters.authorizedApp}
+                               onChange={(e) => setFilters({...filters, authorizedApp: e.target.value})}
+                               style={{width: 180}}/>
+                        <Select placeholder="环境" allowClear
+                                value={filters.authorizedEnv || undefined}
+                                onChange={(v) => setFilters({...filters, authorizedEnv: v || ''})}
+                                style={{width: 120}}>
+                            <Option value="dev">dev</Option>
+                            <Option value="test">test</Option>
+                            <Option value="pre">pre</Option>
+                            <Option value="prod">prod</Option>
+                        </Select>
+                        <Input placeholder="命名空间" allowClear
+                               value={filters.namespace}
+                               onChange={(e) => setFilters({...filters, namespace: e.target.value})}
+                               style={{width: 140}}/>
+                    </>
+                }
+            />
+
+            <ListTable
+                rows={data}
+                columns={[
+                    {title: 'ID', dataIndex: 'id', width: 60},
+                    {title: '密钥', dataIndex: 'secretKey', ellipsis: true},
+                    {title: '分组', dataIndex: 'group', width: 110},
+                    {title: '命名空间', dataIndex: 'namespace', width: 110},
+                    {
+                        title: '授权应用', dataIndex: 'authorizedApp',
+                        render: (s) => <Tag color="blue">{s}</Tag>
+                    },
+                    {
+                        title: '环境', dataIndex: 'authorizedEnv', width: 80,
+                        render: (e) => e ? <Tag>{e}</Tag> : <Tag color="default">ALL</Tag>
+                    },
+                    {
+                        title: '权限级别', dataIndex: 'permissionLevel', width: 100,
+                        render: (l) => <Tag color={l === 'decrypt' ? 'orange' : 'green'}>{l}</Tag>
+                    },
+                    {
+                        title: '过期时间', dataIndex: 'expireTime', width: 170,
+                        render: (t) => t ? new Date(t).toLocaleString() : '永久'
+                    },
+                    {
+                        title: '创建时间', dataIndex: 'gmtCreate', width: 170,
+                        render: (t) => t ? new Date(t).toLocaleString() : '-'
+                    },
+                    {
+                        title: '操作', width: 150, fixed: 'right',
+                        render: (_, r) => (
+                            <Space size="small">
+                                <Button type="link" icon={<EditOutlined/>}
+                                        onClick={() => handleEdit(r)}>编辑</Button>
+                                <Button type="link" danger icon={<DeleteOutlined/>}
+                                        onClick={() => handleDelete(r)}>删除</Button>
+                            </Space>
+                        )
+                    },
+                ]}
+                rowKey="id"
+                loading={loading}
+                pagination={{
+                    current: page, pageSize: size, total,
+                    showSizeChanger: true,
+                    onChange: (p, s) => {
+                        setPage(p);
+                        setSize(s)
+                    }
+                }}
+                emptyTitle="暂无授权"
+                emptyDescription="点「新建授权」给应用开一把钥匙"
+                cardExtra={
+                    <Space>
+                        <Button type="primary" icon={<SafetyOutlined/>} onClick={() => {
+                            setPage(1);
+                            fetchData()
+                        }}>查询</Button>
+                        <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
+                        <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建授权</Button>
+                    </Space>
+                }
+            />
 
             <Modal
                 title={editing ? '编辑授权' : '新建授权'}

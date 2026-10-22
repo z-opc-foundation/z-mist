@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
-import {Button, Card, Form, Input, message, Modal, Select, Space, Switch, Table, Tag} from 'antd'
+import {Button, Form, Input, message, Modal, Select, Space, Switch, Tag} from 'antd'
 import {DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons'
-import {EmptyState, ErrorState, SearchInput, TableToolbar} from '@yuku123/z-frontend-common/ui'
+import {ErrorState, ListTable, SearchInput} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -117,14 +117,69 @@ function AppManage() {
 
     return (
         <div>
-            <Card>
-                {error && (
-                    <div style={{marginBottom: 16}}>
-                        <ErrorState error={error} title="获取应用列表失败" onRetry={() => fetchData()}/>
-                    </div>
-                )}
-                <TableToolbar
-                    left={
+            {error && (
+                <div style={{marginBottom: 16}}>
+                    <ErrorState error={error} title="获取应用列表失败" onRetry={() => fetchData()}/>
+                </div>
+            )}
+
+            {/* 列表页走基座 ListTable（lead 008 §2 规则 2/3/4）：分页 + 过滤 + EmptyState 三件套。
+                本页是**服务端分页**（/app/page?current&size&appName），翻页重新请求后端，
+                所以保留原分页对象，不套基座的客户端分页。
+                搜索框走的是后端 appName 参数（不是端侧过滤），因此**不传 searchKeys** ——
+                否则页面上会出现两个搜索框。动作按钮放 cardExtra。 */}
+            <ListTable
+                rows={data}
+                columns={[
+                    {title: 'ID', dataIndex: 'id', width: 60},
+                    {title: '应用名', dataIndex: 'appName'},
+                    {
+                        title: 'appSecret 指纹', dataIndex: 'appSecret', ellipsis: true,
+                        render: (s) => s ? <code>{s.substring(0, 8)}...{s.substring(s.length - 4)}</code> : '-'
+                    },
+                    {
+                        title: '类型', dataIndex: 'appType', width: 80,
+                        render: (t) => <Tag color={t === 'server' ? 'blue' : 'green'}>{t}</Tag>
+                    },
+                    {title: '命名空间', dataIndex: 'namespace', width: 120},
+                    {
+                        title: '启用', dataIndex: 'enabled', width: 80,
+                        render: (e) => <Tag color={e === 1 ? 'green' : 'red'}>{e === 1 ? '是' : '否'}</Tag>
+                    },
+                    {
+                        title: '创建时间', dataIndex: 'gmtCreate', width: 170,
+                        render: (t) => t ? new Date(t).toLocaleString() : '-'
+                    },
+                    {
+                        title: '操作', width: 280, fixed: 'right',
+                        render: (_, r) => (
+                            <Space size="small">
+                                <Button type="link" icon={<EditOutlined/>}
+                                        onClick={() => handleEdit(r)}>编辑</Button>
+                                <Button type="link" icon={<KeyOutlined/>}
+                                        onClick={() => handleResetSecret(r)}>重置密钥</Button>
+                                <Button type="link" danger icon={<DeleteOutlined/>}
+                                        onClick={() => handleDelete(r)}>删除</Button>
+                            </Space>
+                        )
+                    },
+                ]}
+                rowKey="id"
+                loading={loading}
+                pagination={{
+                    current: page,
+                    pageSize: size,
+                    total,
+                    showSizeChanger: true,
+                    onChange: (p, s) => {
+                        setPage(p);
+                        setSize(s)
+                    }
+                }}
+                emptyTitle="暂无应用"
+                emptyDescription="点「新建应用」注册第一个调用方"
+                cardExtra={
+                    <Space>
                         <SearchInput
                             placeholder="搜索应用名"
                             value={keyword}
@@ -132,68 +187,13 @@ function AppManage() {
                             onSearch={(v) => fetchData(v)}
                             width={240}
                         />
-                    }
-                    right={
-                        <>
-                            <Button icon={<ReloadOutlined/>} onClick={() => fetchData()}>刷新</Button>
-                            <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
-                                新建应用
-                            </Button>
-                        </>
-                    }
-                />
-
-                <Table
-                    loading={loading}
-                    rowKey="id"
-                    dataSource={data}
-                    pagination={{
-                        current: page,
-                        pageSize: size,
-                        total,
-                        showSizeChanger: true,
-                        onChange: (p, s) => {
-                            setPage(p);
-                            setSize(s)
-                        }
-                    }}
-                    columns={[
-                        {title: 'ID', dataIndex: 'id', width: 60},
-                        {title: '应用名', dataIndex: 'appName'},
-                        {
-                            title: 'appSecret 指纹', dataIndex: 'appSecret', ellipsis: true,
-                            render: (s) => s ? <code>{s.substring(0, 8)}...{s.substring(s.length - 4)}</code> : '-'
-                        },
-                        {
-                            title: '类型', dataIndex: 'appType', width: 80,
-                            render: (t) => <Tag color={t === 'server' ? 'blue' : 'green'}>{t}</Tag>
-                        },
-                        {title: '命名空间', dataIndex: 'namespace', width: 120},
-                        {
-                            title: '启用', dataIndex: 'enabled', width: 80,
-                            render: (e) => <Tag color={e === 1 ? 'green' : 'red'}>{e === 1 ? '是' : '否'}</Tag>
-                        },
-                        {
-                            title: '创建时间', dataIndex: 'gmtCreate', width: 170,
-                            render: (t) => t ? new Date(t).toLocaleString() : '-'
-                        },
-                        {
-                            title: '操作', width: 280, fixed: 'right',
-                            render: (_, r) => (
-                                <Space size="small">
-                                    <Button type="link" icon={<EditOutlined/>}
-                                            onClick={() => handleEdit(r)}>编辑</Button>
-                                    <Button type="link" icon={<KeyOutlined/>}
-                                            onClick={() => handleResetSecret(r)}>重置密钥</Button>
-                                    <Button type="link" danger icon={<DeleteOutlined/>}
-                                            onClick={() => handleDelete(r)}>删除</Button>
-                                </Space>
-                            )
-                        },
-                    ]}
-                    locale={{emptyText: <EmptyState title="暂无应用" description="点「新建应用」注册第一个调用方"/>}}
-                />
-            </Card>
+                        <Button icon={<ReloadOutlined/>} onClick={() => fetchData()}>刷新</Button>
+                        <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
+                            新建应用
+                        </Button>
+                    </Space>
+                }
+            />
 
             <Modal
                 title={editing ? '编辑应用' : '新建应用'}

@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
-import {Button, Card, Input, message, Select, Table, Tag} from 'antd'
+import {Button, Input, message, Select, Space, Tag} from 'antd'
 import {ReloadOutlined, SearchOutlined} from '@ant-design/icons'
-import {EmptyState, ErrorState, TableToolbar} from '@yuku123/z-frontend-common/ui'
+import {ErrorState, ListTable, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -58,90 +58,95 @@ function AccessLog() {
 
     return (
         <div>
-            <Card>
-                {error && (
-                    <div style={{marginBottom: 16}}>
-                        <ErrorState error={error} title="查询日志失败" onRetry={() => fetchData()}/>
-                    </div>
-                )}
-                <TableToolbar
-                    left={
-                        <>
-                            <Input placeholder="密钥标识" allowClear
-                                   value={filters.secretKey}
-                                   onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
-                                   style={{width: 180}}/>
-                            <Input placeholder="操作者" allowClear
-                                   value={filters.operator}
-                                   onChange={(e) => setFilters({...filters, operator: e.target.value})}
-                                   style={{width: 140}}/>
-                            <Select placeholder="操作类型" allowClear
-                                    value={filters.opType || undefined}
-                                    onChange={(v) => setFilters({...filters, opType: v || ''})}
-                                    style={{width: 160}}>
-                                {['GET', 'PUT', 'DELETE', 'LIST', 'GET_PLAIN', 'SEARCH', 'HISTORY', 'ROLLBACK', 'ROTATE', 'DYN_GENERATE', 'DYN_READ', 'DYN_REVOKE'].map(op =>
-                                    <Option key={op} value={op}>{op}</Option>
-                                )}
-                            </Select>
-                            <Select placeholder="成功/失败" allowClear
-                                    value={filters.success}
-                                    onChange={(v) => setFilters({...filters, success: v})}
-                                    style={{width: 120}}>
-                                <Option value={true}>成功</Option>
-                                <Option value={false}>失败</Option>
-                            </Select>
-                        </>
-                    }
-                    right={
-                        <>
-                            <Button type="primary" icon={<SearchOutlined/>} onClick={() => {
-                                setPage(1);
-                                fetchData()
-                            }}>查询</Button>
-                            <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
-                        </>
-                    }
-                />
+            {error && (
+                <div style={{marginBottom: 16}}>
+                    <ErrorState error={error} title="查询日志失败" onRetry={() => fetchData()}/>
+                </div>
+            )}
 
-                <Table
-                    loading={loading}
-                    rowKey="id"
-                    dataSource={data}
-                    pagination={{
-                        current: page, pageSize: size, total,
-                        showSizeChanger: true,
-                        onChange: (p, s) => {
-                            setPage(p);
-                            setSize(s)
-                        }
-                    }}
-                    columns={[
-                        {title: 'ID', dataIndex: 'id', width: 60},
-                        {title: '密钥', dataIndex: 'secretKey', ellipsis: true, width: 180},
-                        {
-                            title: '操作类型', dataIndex: 'opType', width: 120,
-                            render: (t) => <Tag color={opColors[t] || 'default'}>{t}</Tag>
-                        },
-                        {title: '操作者', dataIndex: 'operator', width: 110},
-                        {title: 'IP', dataIndex: 'operatorIp', width: 130},
-                        {
-                            title: '成功', dataIndex: 'success', width: 80,
-                            render: (s) => s ?
-                                <Tag color="green">成功</Tag> :
-                                <Tag color="red">失败</Tag>
-                        },
-                        {
-                            title: '错误信息', dataIndex: 'errorMessage', ellipsis: true,
-                            render: (m) => m ? <span style={{color: '#cf1322'}}>{m}</span> : '-'
-                        },
-                        {
-                            title: '时间', dataIndex: 'gmtCreate', width: 170,
-                            render: (t) => t ? new Date(t).toLocaleString() : '-'
-                        },
-                    ]}
-                    locale={{emptyText: <EmptyState title="暂无访问日志" description="放宽筛选条件再查一次"/>}}
-                />
-            </Card>
+            {/* 筛选条件全部走后端（/log/page 的 secretKey/operator/opType/success 参数），
+                是一张查询表单而不是端侧过滤，所以保留在卡片上方的 TableToolbar，
+                **不接基座 searchKeys**（否则页面上会出现两个搜索框）。
+                动作按钮（查询 / 刷新）放 cardExtra。
+                列表是**服务端分页**，翻页重新请求后端 ⇒ 保留原分页对象，不套客户端分页。 */}
+            <TableToolbar
+                left={
+                    <>
+                        <Input placeholder="密钥标识" allowClear
+                               value={filters.secretKey}
+                               onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
+                               style={{width: 180}}/>
+                        <Input placeholder="操作者" allowClear
+                               value={filters.operator}
+                               onChange={(e) => setFilters({...filters, operator: e.target.value})}
+                               style={{width: 140}}/>
+                        <Select placeholder="操作类型" allowClear
+                                value={filters.opType || undefined}
+                                onChange={(v) => setFilters({...filters, opType: v || ''})}
+                                style={{width: 160}}>
+                            {['GET', 'PUT', 'DELETE', 'LIST', 'GET_PLAIN', 'SEARCH', 'HISTORY', 'ROLLBACK', 'ROTATE', 'DYN_GENERATE', 'DYN_READ', 'DYN_REVOKE'].map(op =>
+                                <Option key={op} value={op}>{op}</Option>
+                            )}
+                        </Select>
+                        <Select placeholder="成功/失败" allowClear
+                                value={filters.success}
+                                onChange={(v) => setFilters({...filters, success: v})}
+                                style={{width: 120}}>
+                            <Option value={true}>成功</Option>
+                            <Option value={false}>失败</Option>
+                        </Select>
+                    </>
+                }
+            />
+
+            <ListTable
+                rows={data}
+                columns={[
+                    {title: 'ID', dataIndex: 'id', width: 60},
+                    {title: '密钥', dataIndex: 'secretKey', ellipsis: true, width: 180},
+                    {
+                        title: '操作类型', dataIndex: 'opType', width: 120,
+                        render: (t) => <Tag color={opColors[t] || 'default'}>{t}</Tag>
+                    },
+                    {title: '操作者', dataIndex: 'operator', width: 110},
+                    {title: 'IP', dataIndex: 'operatorIp', width: 130},
+                    {
+                        title: '成功', dataIndex: 'success', width: 80,
+                        render: (s) => s ?
+                            <Tag color="green">成功</Tag> :
+                            <Tag color="red">失败</Tag>
+                    },
+                    {
+                        title: '错误信息', dataIndex: 'errorMessage', ellipsis: true,
+                        render: (m) => m ? <span style={{color: '#cf1322'}}>{m}</span> : '-'
+                    },
+                    {
+                        title: '时间', dataIndex: 'gmtCreate', width: 170,
+                        render: (t) => t ? new Date(t).toLocaleString() : '-'
+                    },
+                ]}
+                rowKey="id"
+                loading={loading}
+                pagination={{
+                    current: page, pageSize: size, total,
+                    showSizeChanger: true,
+                    onChange: (p, s) => {
+                        setPage(p);
+                        setSize(s)
+                    }
+                }}
+                emptyTitle="暂无访问日志"
+                emptyDescription="放宽筛选条件再查一次"
+                cardExtra={
+                    <Space>
+                        <Button type="primary" icon={<SearchOutlined/>} onClick={() => {
+                            setPage(1);
+                            fetchData()
+                        }}>查询</Button>
+                        <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
+                    </Space>
+                }
+            />
         </div>
     )
 }

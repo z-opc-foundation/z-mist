@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
 import {Alert, Card, Col, Row, Statistic, Table, Tag} from 'antd'
 import {CheckCircleOutlined, KeyOutlined, RiseOutlined, ThunderboltOutlined, WarningOutlined,} from '@ant-design/icons'
-import {EmptyState, ErrorState, LoadingState} from '@yuku123/z-frontend-common/ui'
+import {EmptyState, ErrorState, ListTable, LoadingState} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 function Dashboard() {
@@ -174,27 +174,31 @@ function Dashboard() {
             </Row>
 
             {expiring && expiring.length > 0 && (
-                <Card title="即将过期密钥(7 天内)" style={{marginTop: 16}}>
-                    <Table
-                        size="small"
-                        pagination={{pageSize: 5}}
-                        rowKey="id"
-                        dataSource={expiring}
-                        locale={{emptyText: <EmptyState title="暂无即将过期的密钥" description="所有密钥的过期时间都在 7 天以外" size="sm"/>}}
-                        columns={[
-                            {title: '密钥标识', dataIndex: 'secretKey'},
-                            {title: '名称', dataIndex: 'secretName'},
-                            {title: '分组', dataIndex: 'group', width: 120},
-                            {title: '命名空间', dataIndex: 'namespace', width: 120},
-                            {
-                                title: '过期时间',
-                                dataIndex: 'expireTime',
-                                width: 180,
-                                render: (t) => t ? <Tag color="orange">{new Date(t).toLocaleString()}</Tag> : '-'
-                            },
-                        ]}
-                    />
-                </Card>
+                /* 即将过期密钥表走基座 ListTable（lead 008 §2 规则 2/3/4）：
+                   分页用基座默认（pageSize 10 + 每页条数切换 + 总条数），
+                   端侧过滤按密钥名称/标识/分组/命名空间，空态由基座 EmptyState 承接。 */
+                <ListTable
+                    cardTitle="即将过期密钥(7 天内)"
+                    rows={expiring}
+                    columns={[
+                        {title: '密钥标识', dataIndex: 'secretKey'},
+                        {title: '名称', dataIndex: 'secretName'},
+                        {title: '分组', dataIndex: 'group', width: 120},
+                        {title: '命名空间', dataIndex: 'namespace', width: 120},
+                        {
+                            title: '过期时间',
+                            dataIndex: 'expireTime',
+                            width: 180,
+                            render: (t) => t ? <Tag color="orange">{new Date(t).toLocaleString()}</Tag> : '-'
+                        },
+                    ]}
+                    rowKey="id"
+                    searchKeys="secretName,secretKey,group,namespace"
+                    searchPlaceholder="按密钥名称 / 标识 / 分组过滤"
+                    emptyTitle="暂无即将过期的密钥"
+                    emptyDescription="所有密钥的过期时间都在 7 天以外"
+                    cardProps={{style: {marginTop: 16}}}
+                />
             )}
         </div>
     )
