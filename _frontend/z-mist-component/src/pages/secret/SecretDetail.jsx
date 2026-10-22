@@ -1,14 +1,14 @@
 import {useEffect, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
-import {Alert, Button, Card, Descriptions, Input, message, Modal, Space, Spin, Table, Tabs, Tag} from 'antd'
+import {Alert, Button, Card, Descriptions, Input, message, Modal, Space, Table, Tabs, Tag} from 'antd'
 import {
-    ArrowLeftOutlined,
     CopyOutlined,
     EyeInvisibleOutlined,
     EyeOutlined,
     HistoryOutlined,
     RollbackOutlined
 } from '@ant-design/icons'
+import {ErrorState, LoadingState, PageHeader} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {TextArea} = Input
@@ -176,25 +176,33 @@ function SecretDetail() {
         })
     }
 
-    if (loading) return <Spin size="large" style={{display: 'block', margin: 80}}/>
+    // 加载态走共享骨架屏（detail 变体对应下面的详情卡），不再用裸 Spin
+    if (loading) return <LoadingState variant="detail"/>
     if (!secret) {
         return (
             <div>
-                <Button icon={<ArrowLeftOutlined/>} onClick={() => navigate('/z-mist/secret')}>返回</Button>
-                <Alert type="error" message="密钥不存在" style={{marginTop: 16}}/>
+                {/* 子路径详情页（/z-mist/secret/detail/:id）可以写 PageHeader —— 菜单里看不出是哪条实体 */}
+                <PageHeader title="密钥详情" back onBack={() => navigate('/z-mist/secret')}/>
+                <ErrorState title="密钥不存在" description="该密钥可能已被删除，返回列表重新选择"/>
             </div>
         )
     }
 
     return (
         <div>
-            <Space style={{marginBottom: 16}}>
-                <Button icon={<ArrowLeftOutlined/>} onClick={() => navigate('/z-mist/secret')}>返回列表</Button>
-                <Button icon={<HistoryOutlined/>} onClick={handleRotate} type="primary">立即轮换</Button>
-                <Button onClick={handleGenerateDynamic}>生成动态密钥</Button>
-            </Space>
+            <PageHeader
+                title={`密钥详情: ${secret.secretName || secret.secretKey}`}
+                back
+                onBack={() => navigate('/z-mist/secret')}
+                extra={
+                    <>
+                        <Button icon={<HistoryOutlined/>} onClick={handleRotate} type="primary">立即轮换</Button>
+                        <Button onClick={handleGenerateDynamic}>生成动态密钥</Button>
+                    </>
+                }
+            />
 
-            <Card title={`密钥详情: ${secret.secretName || secret.secretKey}`}>
+            <Card>
                 <Descriptions column={2} bordered size="small">
                     <Descriptions.Item label="密钥标识">{secret.secretKey}</Descriptions.Item>
                     <Descriptions.Item label="密钥名称">{secret.secretName}</Descriptions.Item>

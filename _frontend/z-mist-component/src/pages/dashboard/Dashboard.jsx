@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
-import {Alert, Card, Col, Empty, Row, Spin, Statistic, Table, Tag} from 'antd'
+import {Alert, Card, Col, Row, Statistic, Table, Tag} from 'antd'
 import {CheckCircleOutlined, KeyOutlined, RiseOutlined, ThunderboltOutlined, WarningOutlined,} from '@ant-design/icons'
+import {EmptyState, ErrorState, LoadingState} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 function Dashboard() {
@@ -9,6 +10,7 @@ function Dashboard() {
     const [topSecrets, setTopSecrets] = useState([])
     const [expiring, setExpiring] = useState([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
     useEffect(() => {
         fetchAll()
@@ -27,20 +29,30 @@ function Dashboard() {
             if (dy.success) setDaily(dy.data)
             if (ts.success) setTopSecrets(ts.data)
             if (ex.success) setExpiring(ex.data)
+            setError(null)
         } catch (e) {
-            console.error(e)
+            // 保留原始 error 对象：ErrorState 会优先取后端 response.data.message，
+            // 压成字符串就只剩 axios 的 "Request failed with status code 500"。
+            setError(e)
         } finally {
             setLoading(false)
         }
     }
 
-    if (loading) return <Spin size="large" style={{display: 'block', margin: 80}}/>
+    // 加载态走共享骨架屏（cards 变体对应下面 4 张统计卡），不再用裸 Spin
+    if (loading) return <LoadingState variant="cards" rows={4}/>
 
     return (
         <div>
             <h2 style={{marginBottom: 24}}>
                 <RiseOutlined/> z-mist 密钥管理总览
             </h2>
+
+            {error && (
+                <div style={{marginBottom: 16}}>
+                    <ErrorState error={error} title="加载密钥总览失败" onRetry={() => fetchAll()}/>
+                </div>
+            )}
 
             <Row gutter={16}>
                 <Col span={6}>
@@ -103,6 +115,7 @@ function Dashboard() {
                             pagination={false}
                             rowKey="date"
                             dataSource={daily}
+                            locale={{emptyText: <EmptyState title="暂无访问趋势" description="近 7 天还没有密钥访问记录" size="sm"/>}}
                             columns={[
                                 {title: '日期', dataIndex: 'date', width: 110},
                                 {title: 'GET 次数', dataIndex: 'getCount', width: 100},
@@ -137,7 +150,7 @@ function Dashboard() {
                 <Col span={12}>
                     <Card title="TOP 10 访问密钥(7 天)">
                         {topSecrets.length === 0 ?
-                            <Empty description="暂无访问数据"/> :
+                            <EmptyState title="暂无访问数据" description="近 7 天还没有密钥被访问过" size="sm"/> :
                             <Table
                                 size="small"
                                 pagination={false}
@@ -167,6 +180,7 @@ function Dashboard() {
                         pagination={{pageSize: 5}}
                         rowKey="id"
                         dataSource={expiring}
+                        locale={{emptyText: <EmptyState title="暂无即将过期的密钥" description="所有密钥的过期时间都在 7 天以外" size="sm"/>}}
                         columns={[
                             {title: '密钥标识', dataIndex: 'secretKey'},
                             {title: '名称', dataIndex: 'secretName'},

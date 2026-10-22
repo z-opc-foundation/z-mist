@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
-import {Button, Card, Input, message, Select, Space, Table, Tag} from 'antd'
+import {Button, Card, Input, message, Select, Table, Tag} from 'antd'
 import {ReloadOutlined, SearchOutlined} from '@ant-design/icons'
+import {EmptyState, ErrorState, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -11,6 +12,7 @@ function AccessLog() {
     const [loading, setLoading] = useState(false)
     const [page, setPage] = useState(1)
     const [size, setSize] = useState(20)
+    const [error, setError] = useState(null)
     const [filters, setFilters] = useState({
         secretKey: '',
         operator: '',
@@ -37,8 +39,11 @@ function AccessLog() {
                 setData(res.data || [])
                 setTotal(res.total || 0)
             }
+            setError(null)
         } catch (e) {
-            message.error('查询日志失败')
+            // 保留原始 error 对象：ErrorState 会优先取后端 response.data.message，
+            // 压成字符串就只剩 axios 的 "Request failed with status code 500"。
+            setError(e)
         } finally {
             setLoading(false)
         }
@@ -54,36 +59,49 @@ function AccessLog() {
     return (
         <div>
             <Card>
-                <Space wrap style={{marginBottom: 16}}>
-                    <Input placeholder="密钥标识" allowClear
-                           value={filters.secretKey}
-                           onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
-                           style={{width: 180}}/>
-                    <Input placeholder="操作者" allowClear
-                           value={filters.operator}
-                           onChange={(e) => setFilters({...filters, operator: e.target.value})}
-                           style={{width: 140}}/>
-                    <Select placeholder="操作类型" allowClear
-                            value={filters.opType || undefined}
-                            onChange={(v) => setFilters({...filters, opType: v || ''})}
-                            style={{width: 160}}>
-                        {['GET', 'PUT', 'DELETE', 'LIST', 'GET_PLAIN', 'SEARCH', 'HISTORY', 'ROLLBACK', 'ROTATE', 'DYN_GENERATE', 'DYN_READ', 'DYN_REVOKE'].map(op =>
-                            <Option key={op} value={op}>{op}</Option>
-                        )}
-                    </Select>
-                    <Select placeholder="成功/失败" allowClear
-                            value={filters.success}
-                            onChange={(v) => setFilters({...filters, success: v})}
-                            style={{width: 120}}>
-                        <Option value={true}>成功</Option>
-                        <Option value={false}>失败</Option>
-                    </Select>
-                    <Button type="primary" icon={<SearchOutlined/>} onClick={() => {
-                        setPage(1);
-                        fetchData()
-                    }}>查询</Button>
-                    <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
-                </Space>
+                {error && (
+                    <div style={{marginBottom: 16}}>
+                        <ErrorState error={error} title="查询日志失败" onRetry={() => fetchData()}/>
+                    </div>
+                )}
+                <TableToolbar
+                    left={
+                        <>
+                            <Input placeholder="密钥标识" allowClear
+                                   value={filters.secretKey}
+                                   onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
+                                   style={{width: 180}}/>
+                            <Input placeholder="操作者" allowClear
+                                   value={filters.operator}
+                                   onChange={(e) => setFilters({...filters, operator: e.target.value})}
+                                   style={{width: 140}}/>
+                            <Select placeholder="操作类型" allowClear
+                                    value={filters.opType || undefined}
+                                    onChange={(v) => setFilters({...filters, opType: v || ''})}
+                                    style={{width: 160}}>
+                                {['GET', 'PUT', 'DELETE', 'LIST', 'GET_PLAIN', 'SEARCH', 'HISTORY', 'ROLLBACK', 'ROTATE', 'DYN_GENERATE', 'DYN_READ', 'DYN_REVOKE'].map(op =>
+                                    <Option key={op} value={op}>{op}</Option>
+                                )}
+                            </Select>
+                            <Select placeholder="成功/失败" allowClear
+                                    value={filters.success}
+                                    onChange={(v) => setFilters({...filters, success: v})}
+                                    style={{width: 120}}>
+                                <Option value={true}>成功</Option>
+                                <Option value={false}>失败</Option>
+                            </Select>
+                        </>
+                    }
+                    right={
+                        <>
+                            <Button type="primary" icon={<SearchOutlined/>} onClick={() => {
+                                setPage(1);
+                                fetchData()
+                            }}>查询</Button>
+                            <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
+                        </>
+                    }
+                />
 
                 <Table
                     loading={loading}
@@ -121,6 +139,7 @@ function AccessLog() {
                             render: (t) => t ? new Date(t).toLocaleString() : '-'
                         },
                     ]}
+                    locale={{emptyText: <EmptyState title="暂无访问日志" description="放宽筛选条件再查一次"/>}}
                 />
             </Card>
         </div>

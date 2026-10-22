@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
 import {Button, Card, Form, Input, message, Select} from 'antd'
 import {ArrowLeftOutlined} from '@ant-design/icons'
+import {ErrorState} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -30,6 +31,7 @@ function SecretEdit() {
     const {id} = useParams()
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
+    const [error, setError] = useState(null)
     const isEdit = Boolean(id)
 
     useEffect(() => {
@@ -58,8 +60,11 @@ function SecretEdit() {
                     })
                 }
             }
-        } catch (error) {
-            message.error('获取密钥详情失败')
+            setError(null)
+        } catch (error_) {
+            // 保留原始 error 对象：ErrorState 会优先取后端 response.data.message，
+            // 压成字符串就只剩 axios 的 "Request failed with status code 500"。
+            setError(error_)
         }
     }
 
@@ -117,6 +122,11 @@ function SecretEdit() {
                 返回列表
             </Button>
             <Card title={isEdit ? '编辑密钥' : '新增密钥'}>
+                {error && (
+                    <div style={{marginBottom: 16}}>
+                        <ErrorState error={error} title="获取密钥详情失败" onRetry={() => fetchData()}/>
+                    </div>
+                )}
                 <Form
                     form={form}
                     layout="vertical"

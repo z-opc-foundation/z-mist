@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import {Button, Card, Form, Input, InputNumber, message, Modal, Select, Space, Switch, Table, Tag} from 'antd'
 import {DeleteOutlined, EditOutlined, PlayCircleOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons'
+import {EmptyState, ErrorState, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -11,6 +12,8 @@ function RotationPolicy() {
     const [loading, setLoading] = useState(false)
     const [modalOpen, setModalOpen] = useState(false)
     const [editing, setEditing] = useState(null)
+    const [error, setError] = useState(null)
+    const [historyError, setHistoryError] = useState(null)
     const [form] = Form.useForm()
 
     useEffect(() => {
@@ -23,8 +26,11 @@ function RotationPolicy() {
         try {
             const res = await request.get('/rotation/policy/page?current=1&size=100')
             if (res.success) setPolicies(res.data || [])
+            setError(null)
         } catch (e) {
-            message.error('查询策略失败')
+            // 保留原始 error 对象：ErrorState 会优先取后端 response.data.message，
+            // 压成字符串就只剩 axios 的 "Request failed with status code 500"。
+            setError(e)
         } finally {
             setLoading(false)
         }
@@ -34,8 +40,11 @@ function RotationPolicy() {
         try {
             const res = await request.get('/rotation/history/page?current=1&size=50')
             if (res.success) setHistory(res.data || [])
+            setHistoryError(null)
         } catch (e) {
-            message.error('查询轮换历史失败')
+            // 轮换历史拉不到不影响策略列表，单独记一条，不覆盖策略列表的错误。
+            // 存原始 error：ErrorState 会优先取后端 response.data.message。
+            setHistoryError(e)
         }
     }
 
@@ -114,10 +123,19 @@ function RotationPolicy() {
     return (
         <div>
             <Card title="轮换策略">
-                <Space style={{marginBottom: 16}}>
-                    <Button icon={<ReloadOutlined/>} onClick={fetchPolicies}>刷新</Button>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建策略</Button>
-                </Space>
+                {error && (
+                    <div style={{marginBottom: 16}}>
+                        <ErrorState error={error} title="查询策略失败" onRetry={() => fetchPolicies()}/>
+                    </div>
+                )}
+                <TableToolbar
+                    right={
+                        <>
+                            <Button icon={<ReloadOutlined/>} onClick={fetchPolicies}>刷新</Button>
+                            <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建策略</Button>
+                        </>
+                    }
+                />
                 <Table
                     loading={loading}
                     rowKey="id"
@@ -163,14 +181,21 @@ function RotationPolicy() {
                             )
                         },
                     ]}
+                    locale={{emptyText: <EmptyState title="暂无轮换策略" description="点「新建策略」给密钥配一条自动轮换规则"/>}}
                 />
             </Card>
 
             <Card title="轮换历史" style={{marginTop: 16}}>
+                {historyError && (
+                    <div style={{marginBottom: 16}}>
+                        <ErrorState error={historyError} title="查询轮换历史失败" onRetry={() => fetchHistory()}/>
+                    </div>
+                )}
                 <Table
                     rowKey="id"
                     dataSource={history}
                     pagination={{pageSize: 10}}
+                    locale={{emptyText: <EmptyState title="暂无轮换记录" description="策略触发后这里会留下每次轮换的痕迹" size="sm"/>}}
                     columns={[
                         {title: 'ID', dataIndex: 'id', width: 60},
                         {title: '密钥', dataIndex: 'secretKey', ellipsis: true},

@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import {Button, Card, Form, Input, message, Modal, Select, Space, Switch, Table, Tag} from 'antd'
 import {DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons'
+import {EmptyState, ErrorState, SearchInput, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -12,6 +13,7 @@ function AppManage() {
     const [page, setPage] = useState(1)
     const [size, setSize] = useState(20)
     const [keyword, setKeyword] = useState('')
+    const [error, setError] = useState(null)
     const [modalOpen, setModalOpen] = useState(false)
     const [editing, setEditing] = useState(null)
     const [form] = Form.useForm()
@@ -20,16 +22,22 @@ function AppManage() {
         fetchData()
     }, [page, size])
 
-    const fetchData = async () => {
+    // kwOverride 让 Enter 用「输入框此刻的关键词」查询，不必等防抖回写 state。
+    // typeof 兜一层：antd 的 onPressEnter / onClick 会把事件对象当第一个参数传进来。
+    const fetchData = async (kwOverride) => {
         setLoading(true)
         try {
-            const res = await request.get(`/app/page?current=${page}&size=${size}&appName=${encodeURIComponent(keyword)}`)
+            const kw = typeof kwOverride === 'string' ? kwOverride : keyword
+            const res = await request.get(`/app/page?current=${page}&size=${size}&appName=${encodeURIComponent(kw)}`)
             if (res.success) {
                 setData(res.data || [])
                 setTotal(res.total || 0)
             }
+            setError(null)
         } catch (e) {
-            message.error('获取应用列表失败')
+            // 保留原始 error 对象：ErrorState 会优先取后端 response.data.message，
+            // 压成字符串就只剩 axios 的 "Request failed with status code 500"。
+            setError(e)
         } finally {
             setLoading(false)
         }
@@ -110,19 +118,30 @@ function AppManage() {
     return (
         <div>
             <Card>
-                <Space style={{marginBottom: 16}}>
-                    <Input.Search
-                        placeholder="搜索应用名"
-                        allowClear
-                        onSearch={fetchData}
-                        style={{width: 240}}
-                        onChange={(e) => setKeyword(e.target.value)}
-                    />
-                    <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
-                        新建应用
-                    </Button>
-                </Space>
+                {error && (
+                    <div style={{marginBottom: 16}}>
+                        <ErrorState error={error} title="获取应用列表失败" onRetry={() => fetchData()}/>
+                    </div>
+                )}
+                <TableToolbar
+                    left={
+                        <SearchInput
+                            placeholder="搜索应用名"
+                            value={keyword}
+                            onChange={setKeyword}
+                            onSearch={(v) => fetchData(v)}
+                            width={240}
+                        />
+                    }
+                    right={
+                        <>
+                            <Button icon={<ReloadOutlined/>} onClick={() => fetchData()}>刷新</Button>
+                            <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>
+                                新建应用
+                            </Button>
+                        </>
+                    }
+                />
 
                 <Table
                     loading={loading}
@@ -172,6 +191,7 @@ function AppManage() {
                             )
                         },
                     ]}
+                    locale={{emptyText: <EmptyState title="暂无应用" description="点「新建应用」注册第一个调用方"/>}}
                 />
             </Card>
 

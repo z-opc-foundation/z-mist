@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react'
 import {Button, Card, Form, Input, message, Modal, Select, Space, Table, Tag} from 'antd'
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SafetyOutlined} from '@ant-design/icons'
+import {EmptyState, ErrorState, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -11,6 +12,7 @@ function AclManage() {
     const [loading, setLoading] = useState(false)
     const [page, setPage] = useState(1)
     const [size, setSize] = useState(20)
+    const [error, setError] = useState(null)
     const [filters, setFilters] = useState({secretKey: '', authorizedApp: '', authorizedEnv: '', namespace: ''})
     const [modalOpen, setModalOpen] = useState(false)
     const [editing, setEditing] = useState(null)
@@ -35,8 +37,11 @@ function AclManage() {
                 setData(res.data || [])
                 setTotal(res.total || 0)
             }
+            setError(null)
         } catch (e) {
-            message.error('获取授权列表失败')
+            // 保留原始 error 对象：ErrorState 会优先取后端 response.data.message，
+            // 压成字符串就只剩 axios 的 "Request failed with status code 500"。
+            setError(e)
         } finally {
             setLoading(false)
         }
@@ -97,35 +102,48 @@ function AclManage() {
     return (
         <div>
             <Card>
-                <Space wrap style={{marginBottom: 16}}>
-                    <Input placeholder="密钥标识" allowClear
-                           value={filters.secretKey}
-                           onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
-                           style={{width: 180}}/>
-                    <Input placeholder="授权应用" allowClear
-                           value={filters.authorizedApp}
-                           onChange={(e) => setFilters({...filters, authorizedApp: e.target.value})}
-                           style={{width: 180}}/>
-                    <Select placeholder="环境" allowClear
-                            value={filters.authorizedEnv || undefined}
-                            onChange={(v) => setFilters({...filters, authorizedEnv: v || ''})}
-                            style={{width: 120}}>
-                        <Option value="dev">dev</Option>
-                        <Option value="test">test</Option>
-                        <Option value="pre">pre</Option>
-                        <Option value="prod">prod</Option>
-                    </Select>
-                    <Input placeholder="命名空间" allowClear
-                           value={filters.namespace}
-                           onChange={(e) => setFilters({...filters, namespace: e.target.value})}
-                           style={{width: 140}}/>
-                    <Button type="primary" icon={<SafetyOutlined/>} onClick={() => {
-                        setPage(1);
-                        fetchData()
-                    }}>查询</Button>
-                    <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建授权</Button>
-                </Space>
+                {error && (
+                    <div style={{marginBottom: 16}}>
+                        <ErrorState error={error} title="获取授权列表失败" onRetry={() => fetchData()}/>
+                    </div>
+                )}
+                <TableToolbar
+                    left={
+                        <>
+                            <Input placeholder="密钥标识" allowClear
+                                   value={filters.secretKey}
+                                   onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
+                                   style={{width: 180}}/>
+                            <Input placeholder="授权应用" allowClear
+                                   value={filters.authorizedApp}
+                                   onChange={(e) => setFilters({...filters, authorizedApp: e.target.value})}
+                                   style={{width: 180}}/>
+                            <Select placeholder="环境" allowClear
+                                    value={filters.authorizedEnv || undefined}
+                                    onChange={(v) => setFilters({...filters, authorizedEnv: v || ''})}
+                                    style={{width: 120}}>
+                                <Option value="dev">dev</Option>
+                                <Option value="test">test</Option>
+                                <Option value="pre">pre</Option>
+                                <Option value="prod">prod</Option>
+                            </Select>
+                            <Input placeholder="命名空间" allowClear
+                                   value={filters.namespace}
+                                   onChange={(e) => setFilters({...filters, namespace: e.target.value})}
+                                   style={{width: 140}}/>
+                        </>
+                    }
+                    right={
+                        <>
+                            <Button type="primary" icon={<SafetyOutlined/>} onClick={() => {
+                                setPage(1);
+                                fetchData()
+                            }}>查询</Button>
+                            <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
+                            <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建授权</Button>
+                        </>
+                    }
+                />
 
                 <Table
                     loading={loading}
@@ -176,6 +194,7 @@ function AclManage() {
                             )
                         },
                     ]}
+                    locale={{emptyText: <EmptyState title="暂无授权" description="点「新建授权」给应用开一把钥匙"/>}}
                 />
             </Card>
 
