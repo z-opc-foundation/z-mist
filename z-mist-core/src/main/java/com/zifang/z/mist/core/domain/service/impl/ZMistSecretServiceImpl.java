@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.PostConstruct;
 import javax.crypto.Cipher;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
@@ -21,6 +22,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 密钥服务实现(FEATURE026:全功能增强).
@@ -44,6 +46,15 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     private final ConcurrentHashMap<String, KeyPair> rsaKeyPairCache = new ConcurrentHashMap<>();
     /** RSA KeyPair 生成的锁。不用 cacheKey.intern()：那会把主密钥塞进 JVM 字符串池且永不回收。 */
     private final Object rsaKeyPairLock = new Object();
+    /**
+     * 访问审计表缺失时的 ERROR 上报节流窗口(毫秒)。
+     * <p>缺表会让每一次密钥访问都写审计失败 ⇒ 不节流则日志被刷爆, 真正的 ERROR 反而被淹掉。
+     */
+    private static final long AUDIT_TABLE_ERROR_REPORT_INTERVAL_MS = 60_000L;
+    /** 上一次"审计表缺失"ERROR 的上报时刻。 */
+    private final AtomicLong lastAuditTableErrorReportAt = new AtomicLong(0L);
+    /** 节流窗口内被压掉的同类失败次数(下一条 ERROR 一起带出, 不丢信息)。 */
+    private final AtomicLong suppressedAuditTableErrors = new AtomicLong(0L);
 
     @Autowired
     private ZMistSecretInfoMapper secretInfoMapper;
@@ -171,16 +182,35 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
         }
     }
 
+    /**
+     * 密钥列表查询.
+     * <p>
+     * <b>缺省语义与 {@link #searchSecrets} 对齐</b>: {@code null} 与空串都表示"不过滤"。
+     * <p>
+     * 早前这里是 {@code if (namespace != null)} —— 空串被当成"精确匹配 namespace=''"，
+     * 于是同一个参数名在两个端点有两种口径：
+     * {@code /api/secret/list} 不传 namespace ⇒ 只回 namespace 为空串的那几行（实测 total=1），
+     * {@code /api/secret/search} 不传 namespace ⇒ 回全量（实测 total=11）。
+     * 同一个"缺省"含义在两个接口上给出两份答案，调用方无法判断哪个是全量。
+     * <p>
+     * 注意：{@link #getSecret} / {@link #deleteSecret} 走的是"按 (secretKey, group, namespace)
+     * 精确定位"，那里的无条件 eq 是<b>有意为之</b>，不在本次改动范围内。
+     *
+     * @param group     分组,缺省/空串 = 不过滤
+     * @param appName   应用名,缺省/空串 = 不过滤
+     * @param namespace 命名空间,缺省/空串 = 不过滤
+     * @return 命中的密钥列表
+     */
     @Override
     public List<ZMistSecretInfo> listSecrets(String group, String appName, String namespace) {
         LambdaQueryWrapper<ZMistSecretInfo> wrapper = new LambdaQueryWrapper<>();
-        if (group != null) {
+        if (group != null && !group.isEmpty()) {
             wrapper.eq(ZMistSecretInfo::getGroup, group);
         }
-        if (appName != null) {
+        if (appName != null && !appName.isEmpty()) {
             wrapper.eq(ZMistSecretInfo::getAppName, appName);
         }
-        if (namespace != null) {
+        if (namespace != null && !namespace.isEmpty()) {
             wrapper.eq(ZMistSecretInfo::getNamespace, namespace);
         }
         wrapper.orderByDesc(ZMistSecretInfo::getGmtModified);
@@ -582,6 +612,22 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
 
     /**
      * FEATURE021: 写访问日志.失败不抛异常 —— 审计失败不能阻塞业务.
+     *
+     * <p><b>但"不抛异常"不等于"静默"</b>：早前这里是 {@code log.warn(...)}，
+     * 缺表（{@code z_mist_secret_access_log} 不存在）时每次读密钥都只留一行 warn，
+     * 端点照样 200、页面照样全绿，而"谁在什么时候读了哪个密钥"一条都没落库 ——
+     * 静默 catch 把"表根本没建"伪装成"没有数据"。
+     * <p>
+     * 现在分两种情况：
+     * <ul>
+     *   <li><b>表不存在/不可用</b> ⇒ 升级为 <b>ERROR</b> 并打上"访问审计未落库"字样，
+     *       让运维在告警里能直接看到"合规痕迹正在丢失"；为避免每次请求刷屏，
+     *       同一时间窗（60s）内只报一次，其余计数在下一条 ERROR 里带出。</li>
+     *   <li><b>其它异常</b> ⇒ 同样升级为 <b>ERROR</b>（审计失败本身就是合规事件，
+     *       不该停在 warn 级别被日常日志淹没）。</li>
+     * </ul>
+     * 另外 {@link #selfCheckAuditTable()} 在启动期主动探一次表，把问题从"运行中静默"
+     * 提前到"启动即报"。
      */
     @Override
     public void recordAccess(String secretKey, String group, String namespace,
@@ -600,8 +646,80 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
             logRow.setGmtCreate(LocalDateTime.now());
             secretAccessLogMapper.insert(logRow);
         } catch (Exception ex) {
-            log.warn("[z-mist] recordAccess failed: secretKey={}, opType={}, err={}",
-                    secretKey, opType, ex.getMessage());
+            if (isMissingTableError(ex)) {
+                reportAuditTableMissing(secretKey, opType, ex);
+            } else {
+                log.error("[z-mist] 访问审计未落库: recordAccess failed: secretKey={}, opType={}, err={}",
+                        secretKey, opType, ex.getMessage(), ex);
+            }
         }
+    }
+
+    /**
+     * 启动期自检: 访问审计表到底在不在.
+     * <p>
+     * 缺表时不能只靠运行期 catch 兜着 —— 那样要等到第一条密钥被读才暴露，
+     * 而那之前"审计没在工作"这件事没有任何人知道。这里在 bean 初始化后主动探一次：
+     * 表不存在 ⇒ 直接 ERROR，并指明补表脚本位置。
+     * <p>
+     * <b>不抛异常</b>：审计表缺失不应该让整个服务起不来（读端点仍要可用），
+     * 但必须让运维在启动日志里一眼看到。
+     */
+    @PostConstruct
+    public void selfCheckAuditTable() {
+        try {
+            Long count = secretAccessLogMapper.selectCount(null);
+            log.info("[z-mist] 自检通过: 访问审计表可用 (z_mist_secret_access_log, count={})", count);
+        } catch (Exception ex) {
+            log.error("[z-mist] 自检失败: 访问审计表(z_mist_secret_access_log)不存在或不可用, "
+                            + "访问审计将无法落库(密钥被谁读了不会留痕)。"
+                            + "请核对并执行 z-mist/_doc/002_deploy/init_missing_tables_oc.sql 补齐缺表。err={}",
+                    ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * 上报"审计表缺失": ERROR 级别 + 节流.
+     * <p>
+     * 缺表会让<b>每一次</b>密钥访问都失败 ⇒ 不节流的话一次压测就能刷爆日志，
+     * 反而把真正的 ERROR 淹掉。所以：首次立即 ERROR；60s 窗口内的同类失败只计数，
+     * 下一条 ERROR 把被节流掉的次数一起带出来（不丢信息，也不刷屏）。
+     */
+    private void reportAuditTableMissing(String secretKey, String opType, Exception ex) {
+        long now = System.currentTimeMillis();
+        long last = lastAuditTableErrorReportAt.get();
+        if (now - last < AUDIT_TABLE_ERROR_REPORT_INTERVAL_MS) {
+            suppressedAuditTableErrors.incrementAndGet();
+            return;
+        }
+        lastAuditTableErrorReportAt.set(now);
+        long suppressed = suppressedAuditTableErrors.getAndSet(0);
+        log.error("[z-mist] 访问审计未落库: 访问日志表(z_mist_secret_access_log)不存在或不可用, "
+                        + "密钥访问轨迹正在丢失。secretKey={}, opType={}, err={}, 同类失败被节流={} 次",
+                secretKey, opType, ex.getMessage(), suppressed);
+    }
+
+    /**
+     * 判断异常是不是"表不存在"（缺表 / 库没建 / SQL 语法因缺表而错）.
+     * <p>
+     * MyBatis 会把底层 SQLException 包成多层异常（MyBatisSystemException →
+     * BadSqlGrammarException → SQLException），所以要沿 cause 链一路找。
+     */
+    private static boolean isMissingTableError(Throwable ex) {
+        Throwable t = ex;
+        int depth = 0;
+        while (t != null && depth++ < 10) {
+            String msg = t.getMessage();
+            if (msg != null) {
+                String lower = msg.toLowerCase();
+                if (lower.contains("doesn't exist") || lower.contains("does not exist")
+                        || lower.contains("unknown table") || lower.contains("no such table")
+                        || lower.contains("table not found") || lower.contains("bad sql grammar")) {
+                    return true;
+                }
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 }

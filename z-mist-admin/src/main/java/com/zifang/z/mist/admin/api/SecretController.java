@@ -1,5 +1,9 @@
 package com.zifang.z.mist.admin.api;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.zifang.z.mist.common.Constance;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
@@ -14,7 +18,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,6 +63,154 @@ public class SecretController {
     @Autowired
     private IZMistSecretService secretService;
 
+    // ==== 写请求体字段契约（L3 显式化）====
+
+    /**
+     * 写请求体允许的字段名 → {@link SecretReq} 属性名。
+     *
+     * <p><b>为什么需要这张表</b>：本服务被平台（z-opc）装配时，全局 Jackson 是
+     * {@code SNAKE_CASE}；独立部署（z-mist-admin）时则是 camelCase。
+     * 原实现把请求体直接交给 Spring 绑定 ⇒ "字段叫什么"取决于<b>部署在哪</b>，
+     * 而不是取决于<b>接口约定是什么</b>。孵化页 {@code SecretEdit.jsx} 提交 camelCase，
+     * 在平台上被反序列化成全字段 null 的 {@code SecretReq}，再被下面的默认值逻辑补成
+     * "key/name 全 NULL 的一行"（PUT 路径同理，把已有行刷成 null）。
+     *
+     * <p><b>现在的契约</b>（钉在 L3，不随部署环境漂移）：
+     * <ul>
+     *   <li>canonical 写法 = snake_case（与平台一致）；camelCase 作为兼容别名同样接受；</li>
+     *   <li>两种写法之外的字段名 ⇒ <b>显式拒绝</b>（success=false + 指出是哪个字段），不再静默丢弃；</li>
+     *   <li>两种写法都认 ⇒ 不会再出现"字段全是 null"的行；</li>
+     *   <li>{@code secret_key} 与 {@code encrypted_value} 必填 ⇒ 缺字段早失败，不落残行。</li>
+     * </ul>
+     */
+    private static final Map<String, String> BODY_FIELD_ALIASES = buildBodyFieldAliases();
+
+    /**
+     * 请求体绑定用的 ObjectMapper 兜底（无 Spring 注入时用，例如单元测试直接 new 控制器）。
+     * <p>字段名固定按 camelCase 匹配：{@link #bindRequestBody} 已把入参键名归一化过了。
+     */
+    private static final ObjectMapper FALLBACK_BODY_MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .setPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CAMEL_CASE)
+            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+
+    /** 实际使用的请求体绑定 mapper（Spring 注入时按平台配置派生，独立部署时用兜底实例）。 */
+    private volatile ObjectMapper bodyMapper = FALLBACK_BODY_MAPPER;
+
+    /**
+     * 注入平台自己的 ObjectMapper，再把字段命名策略固定成 camelCase（入参已归一化）。
+     * <p>用平台实例是为了沿用它的模块注册与日期格式；只改命名策略，不改其它行为。
+     *
+     * @param objectMapper 平台 ObjectMapper（可能为 null，例如未走 Spring 的单元测试）
+     */
+    @Autowired(required = false)
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        if (objectMapper == null) {
+            return;
+        }
+        this.bodyMapper = objectMapper.copy()
+                .setPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CAMEL_CASE)
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+    }
+
+    /**
+     * 从 {@link SecretReq} 的 setter 反推"允许的字段名"⇒ 属性名映射表。
+     * <p>反射取而不是手写常量：DTO 加字段时这张表自动跟着长，不会漏。
+     *
+     * @return 键 = 允许的入参字段名（camelCase 与 snake_case 两种写法都在里面），值 = DTO 属性名
+     */
+    private static Map<String, String> buildBodyFieldAliases() {
+        Map<String, String> map = new HashMap<>();
+        for (Method m : SecretReq.class.getMethods()) {
+            if (!m.getName().startsWith("set") || m.getParameterCount() != 1) {
+                continue;
+            }
+            String suffix = m.getName().substring(3);
+            if (suffix.isEmpty()) {
+                continue;
+            }
+            String prop = Character.toLowerCase(suffix.charAt(0)) + suffix.substring(1);
+            map.put(prop, prop);
+            map.put(toSnakeCase(prop), prop);
+        }
+        return Collections.unmodifiableMap(map);
+    }
+
+    /**
+     * camelCase → snake_case（{@code secretKey} ⇒ {@code secret_key}）。
+     *
+     * @param camel camelCase 字符串
+     * @return snake_case 字符串
+     */
+    private static String toSnakeCase(String camel) {
+        StringBuilder sb = new StringBuilder(camel.length() + 8);
+        for (int i = 0; i < camel.length(); i++) {
+            char c = camel.charAt(i);
+            if (Character.isUpperCase(c)) {
+                if (i > 0) {
+                    sb.append('_');
+                }
+                sb.append(Character.toLowerCase(c));
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 把原始请求体绑成 {@link SecretReq}，对未知字段显式拒绝。
+     *
+     * @param rawBody 原始 JSON 对象（键名原样保留，不受全局命名策略影响）
+     * @return 绑定后的请求对象
+     * @throws IllegalArgumentException 请求体为空、含未知字段、或缺少必填字段
+     */
+    private SecretReq bindRequestBody(Map<String, Object> rawBody) {
+        if (rawBody == null || rawBody.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "请求体为空: 至少需要 secret_key 与 encrypted_value");
+        }
+        Map<String, Object> normalized = new LinkedHashMap<>();
+        List<String> unknown = new ArrayList<>();
+        for (Map.Entry<String, Object> entry : rawBody.entrySet()) {
+            String target = BODY_FIELD_ALIASES.get(entry.getKey());
+            if (target == null) {
+                unknown.add(entry.getKey());
+            } else {
+                normalized.put(target, entry.getValue());
+            }
+        }
+        if (!unknown.isEmpty()) {
+            throw new IllegalArgumentException("请求体包含未知字段: " + unknown
+                    + "（本接口字段名为 snake_case，如 secret_key / secret_name / encrypted_value）");
+        }
+        SecretReq req = bodyMapper.convertValue(normalized, SecretReq.class);
+        if (req.getSecretKey() == null || req.getSecretKey().trim().isEmpty()) {
+            throw new IllegalArgumentException("secret_key 不能为空");
+        }
+        if (req.getEncryptedValue() == null || req.getEncryptedValue().trim().isEmpty()) {
+            throw new IllegalArgumentException("encrypted_value 不能为空");
+        }
+        return req;
+    }
+
+    /**
+     * 从原始请求体里取 {@code secret_key}（仅用于审计行：被拒的请求也要留下"想写哪个 key"）。
+     *
+     * @param rawBody 原始请求体
+     * @return secret_key，取不到返回 null
+     */
+    private String rawSecretKey(Map<String, Object> rawBody) {
+        if (rawBody == null) {
+            return null;
+        }
+        Object v = rawBody.get("secret_key");
+        if (v == null) {
+            v = rawBody.get("secretKey");
+        }
+        return v == null ? null : String.valueOf(v);
+    }
+
     /**
      * 基于滑动窗口的简单内存限流.
      * <p>
@@ -81,28 +237,33 @@ public class SecretController {
      * 保存(新增)密钥.
      * <p>
      * 对必填字段缺失时填充默认值,执行 PUT 限流检查,并在结束前记录访问日志.
+     * <p>
+     * 请求体先经 {@link #bindRequestBody} 归一化并校验：未知字段一律拒绝，
+     * 不会再像早前那样"反序列化成全 null → 补默认值 → 落一条 key/name 全 NULL 的行"。
      *
-     * @param secret  密钥实体
+     * @param rawBody 原始请求体
      * @param request HTTP 请求,用于获取操作者与客户端 IP
      * @return 包含 success、data、message 的结果映射
      */
     @Operation(summary = "保存密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping
-    public Result<SecretResp> saveSecret(@RequestBody SecretReq secretReq, HttpServletRequest request) {
-        ZMistSecretInfo secret = new ZMistSecretInfo();
-        BeanUtils.copyProperties(secretReq, secret);
+    public Result<SecretResp> saveSecret(@RequestBody Map<String, Object> rawBody, HttpServletRequest request) {
         Result<SecretResp> result = new Result<>();
         if (!rateLimit(putCounters, currentIp(request), PUT_PER_MIN)) {
             result.setSuccess(false);
             result.setMessage("Rate limit exceeded (PUT limit " + PUT_PER_MIN + "/min)");
-            secretService.recordAccess(secret.getSecretKey(), secret.getGroup(), secret.getNamespace(),
+            secretService.recordAccess(rawSecretKey(rawBody), null, null,
                     "PUT", currentOperator(request), currentIp(request), false, "rate_limit");
             return result;
         }
         boolean success = false;
         String errorMsg = null;
+        ZMistSecretInfo secret = null;
         try {
+            SecretReq secretReq = bindRequestBody(rawBody);
+            secret = new ZMistSecretInfo();
+            BeanUtils.copyProperties(secretReq, secret);
             // 设置默认值
             if (secret.getNamespace() == null) {
                 secret.setNamespace(Constance.DEFAULT_NAMESPACE);
@@ -128,9 +289,9 @@ public class SecretController {
         } finally {
             // FEATURE021: 写访问日志
             secretService.recordAccess(
-                    secret.getSecretKey(),
-                    secret.getGroup(),
-                    secret.getNamespace(),
+                    secret == null ? rawSecretKey(rawBody) : secret.getSecretKey(),
+                    secret == null ? null : secret.getGroup(),
+                    secret == null ? null : secret.getNamespace(),
                     "PUT",
                     currentOperator(request),
                     currentIp(request),
@@ -145,28 +306,33 @@ public class SecretController {
      * 更新已有密钥.
      * <p>
      * 复用 PUT 限流桶,并在结束前记录访问日志.
+     * <p>
+     * 与 {@link #saveSecret} 同一套请求体契约：未知字段拒绝、{@code secret_key} 与
+     * {@code encrypted_value} 必填 ⇒ 不会再把已有行刷成 null。
      *
-     * @param secret  包含主键的密钥实体
+     * @param rawBody 原始请求体
      * @param request HTTP 请求,用于获取操作者与客户端 IP
      * @return 包含 success、data、message 的结果映射
      */
     @Operation(summary = "更新密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PutMapping
-    public Result<SecretResp> updateSecret(@RequestBody SecretReq secretReq, HttpServletRequest request) {
-        ZMistSecretInfo secret = new ZMistSecretInfo();
-        BeanUtils.copyProperties(secretReq, secret);
+    public Result<SecretResp> updateSecret(@RequestBody Map<String, Object> rawBody, HttpServletRequest request) {
         Result<SecretResp> result = new Result<>();
         if (!rateLimit(putCounters, currentIp(request), PUT_PER_MIN)) {
             result.setSuccess(false);
             result.setMessage("Rate limit exceeded");
-            secretService.recordAccess(secret.getSecretKey(), secret.getGroup(), secret.getNamespace(),
+            secretService.recordAccess(rawSecretKey(rawBody), null, null,
                     "PUT", currentOperator(request), currentIp(request), false, "rate_limit");
             return result;
         }
         boolean success = false;
         String errorMsg = null;
+        ZMistSecretInfo secret = null;
         try {
+            SecretReq secretReq = bindRequestBody(rawBody);
+            secret = new ZMistSecretInfo();
+            BeanUtils.copyProperties(secretReq, secret);
             ZMistSecretInfo updated = secretService.updateSecret(secret);
             result.setSuccess(true);
             result.setData(updated == null ? null : toResp(updated));
@@ -177,9 +343,9 @@ public class SecretController {
             errorMsg = e.getMessage();
         } finally {
             secretService.recordAccess(
-                    secret.getSecretKey(),
-                    secret.getGroup(),
-                    secret.getNamespace(),
+                    secret == null ? rawSecretKey(rawBody) : secret.getSecretKey(),
+                    secret == null ? null : secret.getGroup(),
+                    secret == null ? null : secret.getNamespace(),
                     "PUT",
                     currentOperator(request),
                     currentIp(request),
@@ -290,10 +456,16 @@ public class SecretController {
 
     /**
      * 密钥列表查询.
+     * <p>
+     * {@code namespace} 缺省语义与 {@code /api/secret/search} 对齐：<b>不传 = 不过滤</b>。
+     * <p>
+     * 早前这里是 {@code defaultValue = ""}，空串又会被当成"精确匹配 namespace=''"，
+     * 于是同一个参数名在 list 与 search 上给出两份答案（实测 list total=1 / search total=11）。
+     * 现在缺省传 null，由服务层统一按"空 = 不过滤"处理。
      *
      * @param group     分组过滤条件
      * @param appName   应用名过滤条件
-     * @param namespace 命名空间过滤条件,缺省空字符串
+     * @param namespace 命名空间过滤条件,不传 = 不过滤
      * @param request   HTTP 请求,用于获取操作者与客户端 IP
      * @return 包含 success、data、total 的结果映射
      */
@@ -303,7 +475,7 @@ public class SecretController {
     public Map<String, Object> listSecrets(
             @RequestParam(required = false) String group,
             @RequestParam(required = false) String appName,
-            @RequestParam(required = false, defaultValue = "") String namespace,
+            @RequestParam(required = false) String namespace,
             HttpServletRequest request) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();

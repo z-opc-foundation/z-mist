@@ -1,11 +1,25 @@
 -- z-mist 密钥管理平台数据库
+--
+-- ⚠️ 跑之前先看这一段（本文件在 2026-10-22 改过执行语义）：
+--   1) 本文件早前带 15 条 `DROP TABLE IF EXISTS`，与 15 条 `CREATE TABLE IF NOT EXISTS`
+--      一一对应、同名同集合 ⇒「把这段 DDL 丢到共享库上跑一遍」= 把 z_mist_secret_info
+--      这类**已有真数据**的表先删后建（= 清库）。2026-09-25 那轮实测就栽在这条上：
+--      共享 `oc` 库里 z_mist_secret_info 有 11 行真数据。
+--      ⇒ 现在这 15 条 DROP **全部默认注释掉了**：本文件的语义变成「确保表存在」
+--      （CREATE TABLE IF NOT EXISTS），对已有表是 no-op，可以安全重复执行。
+--      确需重置 schema（dev 调试）时，把对应那一行的 `-- ` 去掉再跑。
+--   2) 本文件第 3-5 行会 `CREATE DATABASE z_mist` + `USE z_mist`：
+--      也就是说**照文件跑，默认落在 z_mist 库，不是共享的 oc 库**。
+--      要在共享库上补表，请用同目录的 `init_missing_tables.sql`
+--      （只有 8 张缺表的 CREATE，不含任何 DROP / USE / CREATE DATABASE）。
+--   3) 建表语句本身逐字未改，与 z-mist-core 的实体/Mapper 期望的列一致。
 CREATE
 DATABASE IF NOT EXISTS z_mist CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 USE
 z_mist;
 
 -- 密钥主表
-DROP TABLE IF EXISTS `z_mist_secret_info`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_secret_info`;
 CREATE TABLE IF NOT EXISTS `z_mist_secret_info`
 (
     `id`
@@ -82,7 +96,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_secret_info`
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='密钥信息表';
 
 -- 密钥历史版本表
-DROP TABLE IF EXISTS `z_mist_secret_history`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_secret_history`;
 CREATE TABLE IF NOT EXISTS `z_mist_secret_history`
 (
     `id`
@@ -150,7 +164,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_secret_history`
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='密钥历史版本表';
 
 -- 密钥访问授权表
-DROP TABLE IF EXISTS `z_mist_secret_acl`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_secret_acl`;
 CREATE TABLE IF NOT EXISTS `z_mist_secret_acl`
 (
     `id`
@@ -200,7 +214,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_secret_acl`
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='密钥访问授权表';
 
 -- 应用注册表
-DROP TABLE IF EXISTS `z_mist_app_info`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_app_info`;
 CREATE TABLE IF NOT EXISTS `z_mist_app_info`
 (
     `id`
@@ -246,7 +260,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_app_info`
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用注册表';
 
 -- 用户表
-DROP TABLE IF EXISTS `z_mist_users`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_users`;
 CREATE TABLE IF NOT EXISTS `z_mist_users`
 (
     `username`
@@ -269,7 +283,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_users`
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
 -- 角色表
-DROP TABLE IF EXISTS `z_mist_roles`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_roles`;
 CREATE TABLE IF NOT EXISTS `z_mist_roles`
 (
     `username`
@@ -293,7 +307,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_roles`
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户角色映射表';
 
 -- 权限表
-DROP TABLE IF EXISTS `z_mist_permissions`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_permissions`;
 CREATE TABLE IF NOT EXISTS `z_mist_permissions`
 (
     `role`
@@ -334,7 +348,7 @@ VALUES ('admin', 'ROLE_ADMIN');
 -- ============================================================
 -- FEATURE021: 密钥访问日志表
 -- ============================================================
-DROP TABLE IF EXISTS `z_mist_secret_access_log`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_secret_access_log`;
 CREATE TABLE IF NOT EXISTS `z_mist_secret_access_log`
 (
     `id`
@@ -402,7 +416,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_secret_access_log`
 -- ============================================================
 
 -- 1. 密钥标签表
-DROP TABLE IF EXISTS `z_mist_secret_tag`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_secret_tag`;
 CREATE TABLE IF NOT EXISTS `z_mist_secret_tag`
 (
     `id`
@@ -449,7 +463,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_secret_tag`
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='密钥标签表(FEATURE026)';
 
 -- 2. 自动密钥轮换策略表
-DROP TABLE IF EXISTS `z_mist_secret_rotation_policy`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_secret_rotation_policy`;
 CREATE TABLE IF NOT EXISTS `z_mist_secret_rotation_policy`
 (
     `id`
@@ -510,7 +524,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_secret_rotation_policy`
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='密钥自动轮换策略表(FEATURE026)';
 
 -- 3. 密钥轮换历史表
-DROP TABLE IF EXISTS `z_mist_secret_rotation_history`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_secret_rotation_history`;
 CREATE TABLE IF NOT EXISTS `z_mist_secret_rotation_history`
 (
     `id`
@@ -576,7 +590,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_secret_rotation_history`
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='密钥轮换历史表(FEATURE026)';
 
 -- 4. 动态密钥表(带TTL,过期自动失效)
-DROP TABLE IF EXISTS `z_mist_secret_dynamic`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_secret_dynamic`;
 CREATE TABLE IF NOT EXISTS `z_mist_secret_dynamic`
 (
     `id`
@@ -645,7 +659,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_secret_dynamic`
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='动态密钥表(FEATURE026,带TTL自动过期)';
 
 -- 5. 主密钥历史表(支持主密钥轮换re-encrypt)
-DROP TABLE IF EXISTS `z_mist_master_key_history`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_master_key_history`;
 CREATE TABLE IF NOT EXISTS `z_mist_master_key_history`
 (
     `id`
@@ -696,7 +710,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_master_key_history`
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='主密钥历史表(FEATURE026,支持re-encrypt)';
 
 -- 6. 通知日志表(过期告警)
-DROP TABLE IF EXISTS `z_mist_notification_log`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_notification_log`;
 CREATE TABLE IF NOT EXISTS `z_mist_notification_log`
 (
     `id`
@@ -753,7 +767,7 @@ CREATE TABLE IF NOT EXISTS `z_mist_notification_log`
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='通知发送日志(FEATURE026)';
 
 -- 7. 每日统计表(数据看板)
-DROP TABLE IF EXISTS `z_mist_stats_daily`;
+-- [默认注释: 本行会删表。确需重置 schema 时再去掉本行注释] DROP TABLE IF EXISTS `z_mist_stats_daily`;
 CREATE TABLE IF NOT EXISTS `z_mist_stats_daily`
 (
     `id`

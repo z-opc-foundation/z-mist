@@ -7,6 +7,24 @@ import request from '../../services/request'
 const {Option} = Select
 const {TextArea} = Input
 
+/**
+ * 取第一个有值的字段名.
+ *
+ * z-mist 的 JSON 字段名取决于部署在哪: 平台装配(z-opc)时全局 Jackson 是 snake_case,
+ * 独立部署(z-mist-admin)时是 camelCase。读的时候两种都认, 免得表单在一种部署下空着。
+ *
+ * @param {Object} obj 响应对象
+ * @param {...string} keys 候选字段名(按优先级)
+ * @returns {*} 第一个有值的字段值, 都没有则 undefined
+ */
+function pick(obj, ...keys) {
+    if (!obj) return undefined
+    for (const key of keys) {
+        if (obj[key] !== undefined && obj[key] !== null) return obj[key]
+    }
+    return undefined
+}
+
 function SecretEdit() {
     const navigate = useNavigate()
     const {id} = useParams()
@@ -22,13 +40,20 @@ function SecretEdit() {
 
     const fetchData = async () => {
         try {
-            // 通过 search 端点按 id 查找
+            // 通过 list 端点按 id 查找(list 的 namespace 缺省 = 不过滤, 各命名空间都能查到)
             const res = await request.get(`/secret/list`)
             if (res.success) {
                 const secret = res.data.find(item => String(item.id) === String(id))
                 if (secret) {
                     form.setFieldsValue({
-                        ...secret,
+                        secretName: pick(secret, 'secret_name', 'secretName') || '',
+                        secretKey: pick(secret, 'secret_key', 'secretKey') || '',
+                        group: pick(secret, 'group') || '',
+                        appName: pick(secret, 'app_name', 'appName') || '',
+                        secretType: pick(secret, 'secret_type', 'secretType') || 'text',
+                        encryptAlgorithm: pick(secret, 'encrypt_algorithm', 'encryptAlgorithm') || 'AES',
+                        description: pick(secret, 'description') || '',
+                        // 密文不回填到表单: 免得把密文摊在 DOM 里, 也避免把旧密文原样写回去
                         encryptedValue: '',
                     })
                 }
@@ -41,10 +66,26 @@ function SecretEdit() {
     const onFinish = async (values) => {
         setLoading(true)
         try {
+            // L3 写接口契约: 请求体字段名是 snake_case。
+            // (后端对 camelCase 同样兼容, 但两种写法之外的字段会被显式拒绝 —— 不再静默落一条全 NULL 的行)
+            const numericId = Number(id)
             const data = {
-                ...values,
-                secretKey: values.secretKey || `secret_${Date.now()}`,
+                id: isEdit && Number.isFinite(numericId) ? numericId : undefined,
+                secret_key: values.secretKey || `secret_${Date.now()}`,
+                secret_name: values.secretName,
+                group: values.group,
+                app_name: values.appName,
+                secret_type: values.secretType,
+                encrypted_value: values.encryptedValue,
+                encrypt_algorithm: values.encryptAlgorithm,
+                description: values.description,
             }
+            // 去掉没填的键(undefined/null): 空串是"显式清空", 不该被当成"没传"
+            Object.keys(data).forEach(key => {
+                if (data[key] === undefined || data[key] === null) {
+                    delete data[key]
+                }
+            })
 
             let res
             if (isEdit) {
@@ -60,7 +101,7 @@ function SecretEdit() {
                 message.error(res.message || '操作失败')
             }
         } catch (error) {
-            message.error('操作失败')
+            message.error(error?.response?.data?.message || '操作失败')
         } finally {
             setLoading(false)
         }
