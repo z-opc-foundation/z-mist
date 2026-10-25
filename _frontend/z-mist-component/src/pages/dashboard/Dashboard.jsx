@@ -112,7 +112,7 @@ function Dashboard() {
                     <Card title="近 7 天访问趋势">
                         <Table
                             size="small"
-                            pagination={false}
+                            pagination={false /* §2 规则 2 豁免：近 7 天访问趋势：行数固定 7 行（按天），不随业务增长 */}
                             rowKey="date"
                             dataSource={daily}
                             locale={{emptyText: <EmptyState title="暂无访问趋势" description="近 7 天还没有密钥访问记录" size="sm"/>}}
@@ -153,7 +153,7 @@ function Dashboard() {
                             <EmptyState title="暂无访问数据" description="近 7 天还没有密钥被访问过" size="sm"/> :
                             <Table
                                 size="small"
-                                pagination={false}
+                                pagination={false /* §2 规则 2 豁免：TOP 10 访问密钥：后端固定只取前 10 条，行数上界已知且不变 */}
                                 rowKey="secretKey"
                                 dataSource={topSecrets}
                                 columns={[
