@@ -186,11 +186,11 @@ function EaasConsole() {
                 <div style={{marginTop: 16, fontSize: 12, color: '#666'}}>
                     调用示例 (使用 curl):<br/>
                     <code style={{display: 'block', background: '#f5f5f5', padding: 8, marginTop: 8, borderRadius: 4}}>
-                        curl -X POST 'http://localhost:8888/api/master-key/envelope?plainText=hello-mist'
+                        {`curl -X POST '${window.location.origin}/api/master-key/envelope?plainText=hello-mist'`}
                     </code>
                     返回结构: <code>{`{wrappedKey, cipherText, algorithm}`}</code>。<br/>
                     <code style={{display: 'block', background: '#f5f5f5', padding: 8, marginTop: 8, borderRadius: 4}}>
-                        curl -X POST 'http://localhost:8888/api/master-key/unenvelope?wrappedKey=...&cipherText=...'
+                        {`curl -X POST '${window.location.origin}/api/master-key/unenvelope?wrappedKey=...&cipherText=...'`}
                     </code>
                     即解封还原明文。
                 </div>
