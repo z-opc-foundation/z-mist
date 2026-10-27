@@ -176,6 +176,8 @@ function RotationPolicy() {
                 ]}
                 rowKey="id"
                 loading={loading}
+                /* 有 fixed:'right' 的操作列时必须给 scroll.x，理由同授权列表页。 */
+                scroll={{x: 1400}}
                 searchKeys="secretKey,group,namespace"
                 searchPlaceholder="按密钥标识 / 分组 / 命名空间过滤"
                 emptyTitle="暂无轮换策略"

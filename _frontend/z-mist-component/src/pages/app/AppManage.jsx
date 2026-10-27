@@ -166,6 +166,9 @@ function AppManage() {
                 ]}
                 rowKey="id"
                 loading={loading}
+                /* 有 fixed:'right' 的操作列时必须给 scroll.x，否则 antd 不建表内滚动容器，
+                   表格按列宽总和溢出卡片 ⇒ 页面横向滚动、卡片头部按钮被顶出屏幕。 */
+                scroll={{x: 1100}}
                 pagination={{
                     current: page,
                     pageSize: size,

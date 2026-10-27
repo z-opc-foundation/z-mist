@@ -274,6 +274,8 @@ function SecretDetail() {
                                     rowKey="id"
                                     dataSource={history}
                                     pagination={{pageSize: 10}}
+                                    /* fixed:'right' 的列需要 scroll.x 才有表内滚动，否则溢出抽屉。 */
+                                    scroll={{x: 760}}
                                     columns={[
                                         {title: 'ID', dataIndex: 'id', width: 60},
                                         {title: '版本', dataIndex: 'keyVersion', width: 80},

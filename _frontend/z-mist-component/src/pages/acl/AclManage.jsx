@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
 import {Button, Form, Input, message, Modal, Select, Space, Tag} from 'antd'
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SafetyOutlined} from '@ant-design/icons'
-import {ErrorState, ListTable, TableToolbar} from '@yuku123/z-frontend-common/ui'
+import {ErrorState, ListTable, PageHeader, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -22,15 +22,20 @@ function AclManage() {
         fetchData()
     }, [page, size])
 
-    const fetchData = async () => {
+    // override 是为了「查询 / 重置」能同拍带上 page=1 和最新过滤条件：
+    // setState 是异步的，直接连着调 fetchData() 会先拿旧值再被 effect 用新值补一刀（双请求）。
+    const fetchData = async (override) => {
+        const p = override?.page ?? page
+        const s = override?.size ?? size
+        const f = override?.filters ?? filters
         setLoading(true)
         try {
             const qs = new URLSearchParams({
-                current: page, size,
-                secretKey: filters.secretKey,
-                authorizedApp: filters.authorizedApp,
-                authorizedEnv: filters.authorizedEnv,
-                namespace: filters.namespace,
+                current: p, size: s,
+                secretKey: f.secretKey,
+                authorizedApp: f.authorizedApp,
+                authorizedEnv: f.authorizedEnv,
+                namespace: f.namespace,
             })
             const res = await request.get(`/acl/page?${qs}`)
             if (res.success) {
@@ -57,6 +62,18 @@ function AclManage() {
             authorizedEnv: 'prod'
         })
         setModalOpen(true)
+    }
+
+    const handleSearch = () => {
+        setPage(1)
+        fetchData({page: 1})
+    }
+
+    const handleReset = () => {
+        const empty = {secretKey: '', authorizedApp: '', authorizedEnv: '', namespace: ''}
+        setFilters(empty)
+        setPage(1)
+        fetchData({page: 1, filters: empty})
     }
 
     const handleEdit = (record) => {
@@ -101,8 +118,13 @@ function AclManage() {
 
     return (
         <div>
+            <PageHeader
+                title="密钥授权"
+                subtitle="控制哪个应用可以读取 / 解密哪个密钥"
+            />
+
             {error && (
-                <div style={{marginBottom: 16}}>
+                <div style={{marginBottom: 12}}>
                     <ErrorState error={error} title="获取授权列表失败" onRetry={() => fetchData()}/>
                 </div>
             )}
@@ -110,7 +132,7 @@ function AclManage() {
             {/* 筛选条件走后端（/acl/page 的 secretKey/authorizedApp/authorizedEnv/namespace 参数），
                 是一张查询表单而不是端侧过滤，所以保留在卡片上方的 TableToolbar，
                 **不接基座 searchKeys**（否则页面上会出现两个搜索框）。
-                动作按钮（查询 / 刷新 / 新建授权）放 cardExtra。
+                查询键与筛选条放在一起（输入框回车即查询），「新建授权」留在卡片头部。
                 列表是**服务端分页**，翻页重新请求后端 ⇒ 保留原分页对象，不套客户端分页。 */}
             <TableToolbar
                 left={
@@ -118,15 +140,17 @@ function AclManage() {
                         <Input placeholder="密钥标识" allowClear
                                value={filters.secretKey}
                                onChange={(e) => setFilters({...filters, secretKey: e.target.value})}
-                               style={{width: 180}}/>
+                               onPressEnter={handleSearch}
+                               style={{width: 150}}/>
                         <Input placeholder="授权应用" allowClear
                                value={filters.authorizedApp}
                                onChange={(e) => setFilters({...filters, authorizedApp: e.target.value})}
-                               style={{width: 180}}/>
+                               onPressEnter={handleSearch}
+                               style={{width: 150}}/>
                         <Select placeholder="环境" allowClear
                                 value={filters.authorizedEnv || undefined}
                                 onChange={(v) => setFilters({...filters, authorizedEnv: v || ''})}
-                                style={{width: 120}}>
+                                style={{width: 110}}>
                             <Option value="dev">dev</Option>
                             <Option value="test">test</Option>
                             <Option value="pre">pre</Option>
@@ -135,7 +159,14 @@ function AclManage() {
                         <Input placeholder="命名空间" allowClear
                                value={filters.namespace}
                                onChange={(e) => setFilters({...filters, namespace: e.target.value})}
-                               style={{width: 140}}/>
+                               onPressEnter={handleSearch}
+                               style={{width: 120}}/>
+                    </>
+                }
+                right={
+                    <>
+                        <Button icon={<ReloadOutlined/>} onClick={handleReset}>重置</Button>
+                        <Button type="primary" icon={<SafetyOutlined/>} onClick={handleSearch}>查询</Button>
                     </>
                 }
             />
@@ -144,11 +175,11 @@ function AclManage() {
                 rows={data}
                 columns={[
                     {title: 'ID', dataIndex: 'id', width: 60},
-                    {title: '密钥', dataIndex: 'secretKey', ellipsis: true},
+                    {title: '密钥', dataIndex: 'secretKey', width: 200, ellipsis: true},
                     {title: '分组', dataIndex: 'group', width: 110},
-                    {title: '命名空间', dataIndex: 'namespace', width: 110},
+                    {title: '命名空间', dataIndex: 'namespace', width: 120},
                     {
-                        title: '授权应用', dataIndex: 'authorizedApp',
+                        title: '授权应用', dataIndex: 'authorizedApp', width: 140,
                         render: (s) => <Tag color="blue">{s}</Tag>
                     },
                     {
@@ -168,7 +199,7 @@ function AclManage() {
                         render: (t) => t ? new Date(t).toLocaleString() : '-'
                     },
                     {
-                        title: '操作', width: 150, fixed: 'right',
+                        title: '操作', width: 140, fixed: 'right',
                         render: (_, r) => (
                             <Space size="small">
                                 <Button type="link" icon={<EditOutlined/>}
@@ -181,25 +212,23 @@ function AclManage() {
                 ]}
                 rowKey="id"
                 loading={loading}
+                cardTitle="授权列表"
+                /* 有 fixed:'right' 的列时必须给 scroll.x：不给的话 antd 不建表内滚动容器，
+                   整张表按列宽总和把卡片撑爆 ⇒ 页面横向溢出、卡片头部的「新建授权」被顶出屏幕。 */
+                scroll={{x: 1290}}
                 pagination={{
                     current: page, pageSize: size, total,
                     showSizeChanger: true,
+                    showTotal: (t) => `共 ${t} 条`,
                     onChange: (p, s) => {
                         setPage(p);
                         setSize(s)
                     }
                 }}
                 emptyTitle="暂无授权"
-                emptyDescription="点「新建授权」给应用开一把钥匙"
+                emptyDescription="点右上角「新建授权」给应用开一把钥匙"
                 cardExtra={
-                    <Space>
-                        <Button type="primary" icon={<SafetyOutlined/>} onClick={() => {
-                            setPage(1);
-                            fetchData()
-                        }}>查询</Button>
-                        <Button icon={<ReloadOutlined/>} onClick={fetchData}>刷新</Button>
-                        <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建授权</Button>
-                    </Space>
+                    <Button type="primary" icon={<PlusOutlined/>} onClick={handleCreate}>新建授权</Button>
                 }
             />
 
