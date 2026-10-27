@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
 import {Button, Form, Input, message, Modal, Select, Space, Tag} from 'antd'
 import {DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, SafetyOutlined} from '@ant-design/icons'
-import {ErrorState, ListTable, PageHeader, TableToolbar} from '@yuku123/z-frontend-common/ui'
+import { ErrorState, ListTable, TableToolbar } from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 
 const {Option} = Select
@@ -118,10 +118,6 @@ function AclManage() {
 
     return (
         <div>
-            <PageHeader
-                title="密钥授权"
-                subtitle="控制哪个应用可以读取 / 解密哪个密钥"
-            />
 
             {error && (
                 <div style={{marginBottom: 12}}>

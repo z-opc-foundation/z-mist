@@ -16,7 +16,7 @@
  * 早期用「名字是否在全仓出现过」判断过一轮，结果 51 个导出全部误判为「活」，
  * 因为这三个文件的导出名与其他模块大量重名。
  */
-import request from '@yuku123/z-frontend-common'
+import {request} from '@yuku123/z-frontend-common'
 
 export default request
 

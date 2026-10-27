@@ -9,7 +9,7 @@ import {
     PlusOutlined,
     ReloadOutlined,
 } from '@ant-design/icons'
-import {ListTable, SearchInput} from '@yuku123/z-frontend-common/ui'
+import {ErrorState, ListTable, SearchInput} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 import SecretValueDisplay from './SecretValueDisplay'
 
@@ -18,6 +18,8 @@ function SecretList() {
     const [data, setData] = useState([])
     const [loading, setLoading] = useState(false)
     const [keyword, setKeyword] = useState('')
+    // lead 008 §17：读失败常驻报错 + 重试，避免空表被误读成“没有密钥”。
+    const [loadError, setLoadError] = useState(null)
     const [detailOpen, setDetailOpen] = useState(false)
     const [detailRecord, setDetailRecord] = useState(null)
 
@@ -28,9 +30,12 @@ function SecretList() {
             const res = await request.get(url)
             if (res.success) {
                 setData(res.data || [])
+                setLoadError(null)
+            } else {
+                setLoadError(res.message || '密钥列表没有读到')
             }
         } catch (error) {
-            message.error('获取密钥列表失败')
+            setLoadError(error)
         } finally {
             setLoading(false)
         }
@@ -189,9 +194,16 @@ function SecretList() {
 
     return (
         <>
-            <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
-                <h2>密钥管理</h2>
-            </div>
+            {/* lead 008 §13：菜单直开页不写页内标题（菜单 label 已是页面名）。 */}
+            {loadError && (
+                <ErrorState
+                    error={loadError}
+                    title="密钥列表没有读到"
+                    description="接口没有返回数据，下方空表不代表真的没有密钥。"
+                    onRetry={() => fetchData(keyword)}
+                    style={{marginBottom: 16}}
+                />
+            )}
             {/* 列表页走基座 ListTable（lead 008 §2 规则 2/3/4）：分页 / 过滤 / EmptyState 三件套。
                 搜索走后端（/secret/search?keyword=），不是端侧过滤 ⇒ **不传 searchKeys**，
                 否则页面上会出现两个搜索框；动作按钮放 cardExtra。
@@ -202,8 +214,8 @@ function SecretList() {
                 rowKey="id"
                 loading={loading}
                 scroll={{x: 1200}}
-                emptyTitle="暂无密钥"
-                emptyDescription="点右上角「新增密钥」创建第一个"
+                emptyTitle={loadError ? '数据没有读到' : '暂无密钥'}
+                emptyDescription={loadError ? '上方错误条已说明原因，点「重新加载」重试。' : '点右上角「新增密钥」创建第一个'}
                 cardExtra={
                     <Space>
                         <SearchInput
