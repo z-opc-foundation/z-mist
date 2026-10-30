@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>z-mist-common</artifactId>
-    <name>z-mist-common</name>
+    <name>z-mist :: common</name>
     <description>
         z-mist 协议层: Netty 编解码 / JSON 序列化 / CommandType 枚举 / 通用 Message DTO / LoginRequest &amp; LoginResponse 等 auth 模型。
         完全独立模块，无任何业务依赖（仅 log4j-api + jackson-databind + netty-all），可被 client / core / web 共享。

@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>z-mist-web</artifactId>
-    <name>z-mist-web</name>
+    <name>z-mist :: web</name>
     <description>
         z-mist Spring Boot Starter 入口: SecretController + MistSecurityConfig + MistMybatisPlusConfig + MistKnife4jConfig + MistWebAutoConfiguration。
         业务模块一行 import 即可启用 z-mist HTTP API。

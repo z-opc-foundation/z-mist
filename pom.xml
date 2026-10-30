@@ -33,10 +33,11 @@
     <artifactId>z-mist</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
-    <name>z-mist (Secret Management Platform Aggregator)</name>
+    <name>z-mist :: root</name>
     <description>
         Z-Mist: 分布式密钥/秘密管理平台。
         提供 Netty 私有协议 + MyBatis-Plus 数据层 + Spring Boot Starter 一行集成 + Web 控制台 + 调度器（密钥轮换/过期/Webhook 通知）。
+        Secret Management Platform Aggregator
     </description>
 
     <url>https://github.com/z-opc-foundation/z-mist</url>
