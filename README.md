@@ -15,12 +15,12 @@
 |------|-----|
 | **仓库** | `z-mist`（Secret Management Platform） |
 | **Maven 坐标** | `io.github.yuku123:z-mist:${revision}` |
-| **当前版本** | `1.0.4`（根 POM `<revision>`，CI-friendly versions + flatten-maven-plugin `oss` 模式） |
-| **父项目** | `io.github.yuku123:z-boot-parent:1.1.0`（`<relativePath/>` 留空，parent 在 repo1 不在磁盘） |
+| **当前版本** | `1.0.5`（根 POM `<revision>`，CI-friendly versions + flatten-maven-plugin `oss` 模式） |
+| **父项目** | `io.github.yuku123:z-boot-parent:1.2.0`（`<relativePath/>` 留空，parent 在 repo1 不在磁盘） |
 | **Maven Central** | 已发布：`z-mist` / `-common` / `-core` / `-web` / `-client` / `-sdk` 的 `1.0.2`~`1.0.4` 均实测 200 |
 | **默认端口** | HTTP `8080`（Spring Boot 默认，未覆盖）· Netty 私有协议 `9085`（`z-mist.server.port`） |
-| **运行口径** | Java 8 · Spring Boot 2.7.18 |
-| **最近更新** | 2026-09-30 |
+| **运行口径** | Java 17 · Spring Boot 3.3.13（2026-10-30 SB3 火车全量迁移，`javax.*` → `jakarta.*`） |
+| **最近更新** | 2026-10-30 |
 
 ---
 
@@ -54,7 +54,7 @@
 
 ```
 z-mist/
-├── pom.xml                # 根聚合 POM：继承 z-boot-parent:1.1.0，<revision> 统一版本，常开 flatten(oss)
+├── pom.xml                # 根聚合 POM：继承 z-boot-parent:1.2.0，<revision> 统一版本，常开 flatten(oss)
 ├── z-mist-common/         # 协议层 + 共享类型：Netty 编解码/序列化、Message/心跳、Result、密钥与登录 DTO
 ├── z-mist-core/           # 领域 + 服务端：Z*Mist 实体/Mapper/Service、AES 加解密、MistNettyServer
 ├── z-mist-web/            # Spring Boot Starter：REST 控制器 + 自动装配 + 模块数据源 + 调度器 + Knife4j/Security
@@ -79,8 +79,8 @@ z-mist/
 
 | 层级 | 技术（均取自 POM / 源码实测） |
 |------|------|
-| 语言 / 运行时 | Java 8（全组织口径 1.8） |
-| 框架 | Spring Boot 2.7.18（由 `z-boot-parent:1.1.0` 供给） |
+| 语言 / 运行时 | Java 17（SB3 火车口径，class file 61.0） |
+| 框架 | Spring Boot 3.3.13（由 `z-boot-parent:1.2.0` 供给） |
 | 私有协议 | Netty `netty-all` 4.1.138.Final（JSON 编解码 + 长度字段分帧 + 心跳） |
 | 持久层 | MyBatis-Plus 3.5.7 + Druid 1.2.23，数据源走 `ModuleDataSourceTemplate` |
 | 数据库 | MySQL（`mysql-connector-j` 刻意钉 8.0.33，与地板 8.4.0 分歧） |
@@ -103,7 +103,7 @@ z-mist/
 mvn clean install -DskipTests
 ```
 
-若解析不到 `io.github.yuku123:z-boot-parent:1.1.0`，先确认本地/镜像能拉到该 parent；第三方版本一律由父链供给，
+若解析不到 `io.github.yuku123:z-boot-parent:1.2.0`，先确认本地/镜像能拉到该 parent；第三方版本一律由父链供给，
 模块 POM 不应再出现字面版本钉。
 
 ### 本地跑起 admin 演示
@@ -185,7 +185,7 @@ reactor 内 `z-mist-common` / `z-mist-core` / `z-mist-web` / `z-mist-admin` 四�
 `HEALTHCHECK` 访问 `http://127.0.0.1:8080/doc.html`，`ENTRYPOINT java -jar app.jar`。
 
 > ⚠️ 现状偏差（如实记录）：Dockerfile 里 `COPY z-mist-admin/target/z-mist-admin-1.0.0-SNAPSHOT.jar app.jar`
-> 仍指向历史快照名（当前版本为 `1.0.4`），且 admin 的 `repackage` 被 skip（输出非可执行 jar）。
+> 仍指向历史快照名（当前版本为 `1.0.5`），且 admin 的 `repackage` 被 skip（输出非可执行 jar）。
 > 直接 `docker build` 前需修正 jar 名与启动方式，勿据此假设镜像开箱可用。
 
 Maven Central 发布脚本见 [`_doc/003_script/deploy_maven_center.sh`](_doc/003_script/deploy_maven_center.sh)、

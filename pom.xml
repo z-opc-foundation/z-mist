@@ -12,7 +12,7 @@
     <parent>
         <groupId>io.github.yuku123</groupId>
         <artifactId>z-boot-parent</artifactId>
-        <version>1.1.0</version>
+        <version>1.2.0</version>
         <relativePath/>
     </parent>
 
@@ -90,7 +90,17 @@
 
     <properties>
         <!-- CI-friendly 版本根 (发版改这一处即可；配下方常开 flatten，入库/发布件里落成字面量) -->
-        <revision>1.0.4</revision>
+        <!-- 1.0.5: **SB3 火车全量迁移**（2026-10-30）—— parent 抬到 z-boot-parent 1.2.0
+             （Boot 3.3.13 地板）、javax.annotation.* → jakarta.annotation.*、
+             knife4j-openapi3-spring-boot-starter → knife4j-openapi3-jakarta-spring-boot-starter、
+             META-INF/spring.factories → META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports。
+             ⚠ 这一条是 z-opc 主壳的**启动期卡点**：Boot 3 不再读 spring.factories，
+             Central 上 1.0.4 那只 jar 只有 spring.factories ⇒ MistCoreAutoConfiguration 不加载
+             ⇒ ZMistSecretServiceImpl 缺 bean ⇒ 主壳启动崩在
+             "No qualifying bean of type 'com.zifang.z.mist.core.domain.service.IZMistSecretService'"。
+             ⚠ 1.0.4 已被 2026-10-27 之前的发布占位（Central 上 z-mist-core:1.0.4 在列），
+             **同版本号不可重发** ⇒ 本次必须跳到 1.0.5。 -->
+        <revision>1.0.5</revision>
 
         <!-- 2026-09-29 迁移到 z-boot-parent：版本口径由父链下发，下面这些键已删——**父链面值与本仓
              逐字节相同**（键删了、tree 里这些坐标的版本一件没动）：
@@ -344,6 +354,24 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
                         <version>3.2.7</version>
+                        <configuration>
+                            <skip>${central.gpg.skip}</skip>
+                            <!-- 2026-10-30 修 gpg 签名失败（与 z-ctc 1.0.6 / z-util 1.2.12 实发同款根因）：
+                                 ① maven-gpg-plugin 会自己传 pinentry-mode 参数（值 error），
+                                    gpg 对同一选项取最后一次出现的值 ⇒ 调用方的 error 盖掉
+                                    wrapper 自己的 loopback ⇒ 报 "No pinentry" / Exit code: 2。
+                                    修法：wrapper 先剔除入参里的 pinentry-mode 整组，
+                                    再以 loopback 追加（见 _doc/003_script/gpg-with-passphrase.sh）。
+                                 ② 插件默认按 local-user=default 找密钥，本机密钥环里没有
+                                    名为 default 的密钥（只有 uid yuku123 / key A403FCCFD7EF5DA6）
+                                    ⇒ 显式钉 keyname。
+                                 ③ 口令不进 argv（ps 明文可见）⇒ 由 wrapper 从仓根 .env 读出后
+                                    以 passphrase 参数交给系统 gpg，且全程 batch + loopback。
+                                 注：XML 注释里不能出现连续两个减号，上面刻意用「pinentry-mode 参数」
+                                 /「local-user=default」措辞。 -->
+                            <keyname>A403FCCFD7EF5DA6</keyname>
+                            <executable>${maven.multiModuleProjectDirectory}/_doc/003_script/gpg-with-passphrase.sh</executable>
+                        </configuration>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
