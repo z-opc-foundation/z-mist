@@ -1,9 +1,10 @@
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import {safeEmptyOutDir} from '../../build-tools/safe-vite-plugin.mjs'
 
 export default defineConfig({
-    plugins: [react()],
+    plugins: [safeEmptyOutDir(), react()],
     // library mode 的 rollup 不读 tsconfig paths，@/ 必须在 resolve.alias 里再声明一次
     resolve: {
         alias: {'@': path.resolve(__dirname, 'src')},
@@ -18,7 +19,7 @@ export default defineConfig({
             formats: ['es'],
         },
         outDir: 'dist',
-        emptyOutDir: true,
+        emptyOutDir: false,
         rollupOptions: {
             // rollup 的 external 是精确字符串匹配，不是前缀匹配：
             // 只写主桶的话，源码里的 '@yuku123/z-frontend-common/ui' 会被当普通依赖打包，
