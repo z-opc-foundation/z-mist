@@ -248,9 +248,9 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     /**
      * P0: AES 加密（默认取当前主密钥）.
      * <p>
-     * 走 {@link MistCrypto}：AES/GCM + 随机 nonce，产出 {@code zm1:} 新格式。
-     * 历史实现是 {@code Cipher.getInstance("AES")}（= AES/ECB/PKCS5Padding），确定性加密、
-     * 泄露明文块结构，且同一明文两次密文完全相同。
+     * 走 {@link MistCrypto#encrypt}：PBKDF2-HMAC-SHA256 派生密钥 + AES/GCM + 随机 salt/nonce，
+     * 产出 {@code zm2:} 新格式。历史实现是 {@code Cipher.getInstance("AES")}
+     * （= AES/ECB/PKCS5Padding），确定性加密、泄露明文块结构，且同一明文两次密文完全相同。
      */
     private String encryptAES(String plainValue) throws Exception {
         return MistCrypto.encrypt(plainValue, resolveMasterKey());
@@ -259,7 +259,8 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     /**
      * P0: AES 解密（默认取当前主密钥）.
      * <p>
-     * 带 {@code zm1:} 前缀走 GCM；不带前缀按存量 AES/ECB/PKCS5Padding 解 —— 存量密文不需要迁移。
+     * 走 {@link MistCrypto#decrypt} 按前缀三路分流：{@code zm2:} 走 PBKDF2+GCM、
+     * {@code zm1:} 走旧 MD5+GCM、无前缀按存量 AES/ECB/PKCS5Padding 解 —— 存量密文不需要迁移。
      */
     private String decryptAES(String encryptedValue) throws Exception {
         return MistCrypto.decrypt(encryptedValue, resolveMasterKey());

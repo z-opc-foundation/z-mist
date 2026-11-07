@@ -439,11 +439,12 @@ public class ZMistSecretServiceImplTest {
 
     @Test
     void testLegacyCiphertextCanNeverCollideWithNewFormat() throws Exception {
-        // Base64 字母表不含 ':', 所以 'zm1:' 前缀与存量密文永不含糊 —— 这是分流无歧义的前提
+        // Base64 字母表不含 ':', 所以各代版本前缀(zm1:/zm2:)与存量密文永不含糊 —— 这是分流无歧义的前提
         for (int i = 0; i < 200; i++) {
             String legacy = legacyEcbEncrypt("v" + i, "k");
             assertTrue(MistCrypto.isLegacy(legacy));
             assertFalse(legacy.startsWith("zm1:"));
+            assertFalse(legacy.startsWith("zm2:"));
         }
     }
 
@@ -453,7 +454,7 @@ public class ZMistSecretServiceImplTest {
         String plain = "same-secret-value";
         String c1 = service.encryptValue(plain, Constance.EncryptAlgorithm.AES);
         String c2 = service.encryptValue(plain, Constance.EncryptAlgorithm.AES);
-        assertNotEquals(c1, c2, "同一明文两次加密必须得到不同密文（随机 nonce）");
+        assertNotEquals(c1, c2, "同一明文两次加密必须得到不同密文（随机 salt/nonce）");
         assertEquals(plain, service.decryptValue(c1, Constance.EncryptAlgorithm.AES));
         assertEquals(plain, service.decryptValue(c2, Constance.EncryptAlgorithm.AES));
     }
@@ -467,21 +468,21 @@ public class ZMistSecretServiceImplTest {
 
         byte[] c1 = gcmBody(service.encryptValue(p1, Constance.EncryptAlgorithm.AES));
         byte[] c2 = gcmBody(service.encryptValue(p2, Constance.EncryptAlgorithm.AES));
-        // GCM: [nonce 12][ciphertext][tag 16]; 比较密文首块(跳过 nonce)
-        assertFalse(Arrays.equals(Arrays.copyOfRange(c1, 12, 28), Arrays.copyOfRange(c2, 12, 28)),
+        // zm2: [salt 16][nonce 12][ciphertext][tag 16]; 比较密文首块(跳过 salt+nonce = 28 字节)
+        assertFalse(Arrays.equals(Arrays.copyOfRange(c1, 28, 44), Arrays.copyOfRange(c2, 28, 44)),
                 "首块相同的明文不应产出相同的密文首块");
     }
 
-    /** 剥掉 "zm1:" 前缀解 base64, 得到 GCM 的 [nonce|ct|tag] 原始字节。 */
+    /** 剥掉 "zm2:" 前缀解 base64, 得到 [salt|nonce|ct|tag] 原始字节。 */
     private static byte[] gcmBody(String stored) {
-        assertTrue(stored.startsWith("zm1:"), "本测试只处理新格式, 实际: " + stored);
-        return java.util.Base64.getDecoder().decode(stored.substring("zm1:".length()));
+        assertTrue(stored.startsWith("zm2:"), "本测试只处理新格式, 实际: " + stored);
+        return java.util.Base64.getDecoder().decode(stored.substring("zm2:".length()));
     }
 
     @Test
     void testNewCiphertextCarriesFormatPrefix() {
         String cipher = service.encryptValue("x", Constance.EncryptAlgorithm.AES);
-        assertTrue(cipher.startsWith("zm1:"), "新密文应带版本前缀");
+        assertTrue(cipher.startsWith("zm2:"), "新密文应带 zm2: 版本前缀");
         assertFalse(MistCrypto.isLegacy(cipher));
     }
 

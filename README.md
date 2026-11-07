@@ -84,7 +84,7 @@ z-mist/
 | 私有协议 | Netty `netty-all` 4.1.138.Final（JSON 编解码 + 长度字段分帧 + 心跳） |
 | 持久层 | MyBatis-Plus 3.5.7 + Druid 1.2.23，数据源走 `ModuleDataSourceTemplate` |
 | 数据库 | MySQL（`mysql-connector-j` 刻意钉 8.0.33，与地板 8.4.0 分歧） |
-| 加解密 | AES（主密钥外部化，支持信封加密） |
+| 加解密 | AES-GCM（主密钥路径 PBKDF2-HMAC-SHA256 派生；三代密文格式并存、存量只读；信封加密走原始数据密钥，详见「密文格式与 KDF」） |
 | 定时调度 | cron-utils 9.2.1 + Spring `@Scheduled` |
 | HTTP 客户端 | OkHttp 4.12.0（Webhook 通知） |
 | 接口文档 | Knife4j / springdoc（`knife4j-openapi3-spring-boot-starter` 4.1.0，启动后 `/doc.html`） |
@@ -92,6 +92,26 @@ z-mist/
 | 安全 | Spring Security（仅方法级 `@PreAuthorize`，filter chain `permitAll`） |
 | 前端 | React + Ant Design + Vite（`_frontend/`，独立 npm 工程，node v18.17.0） |
 | 构建 | Maven（后端）· frontend-maven-plugin（前端）· Docker |
+
+---
+
+## 🔐 密文格式与 KDF（三代并存）
+
+`MistCrypto` 的密文按前缀分流，三代格式并存，**写入只产最新一代**：
+
+| 前缀 | 布局（Base64 解码后） | 密钥派生 | 加解密 | 状态 |
+|------|----------------------|----------|--------|------|
+| `zm2:` | `salt[16] ‖ nonce[12] ‖ ciphertext‖tag[16]` | `PBKDF2WithHmacSHA256(masterKey, salt, 120000, 256bit)` | AES/GCM/NoPadding | 当前写入格式 |
+| `zm1:` | `nonce[12] ‖ ciphertext‖tag[16]` | `MD5(masterKey)` 单趟 16 字节 | AES/GCM/NoPadding | 存量只读 |
+| 无前缀 | AES/ECB/PKCS5Padding 密文 | `MD5(masterKey)` 单趟 16 字节 | `Cipher.getInstance("AES")` | 存量只读 |
+
+Base64 字母表不含 `:`，故带前缀的新格式与存量密文无歧义。
+
+- **KDF 升级动机**：旧 `MD5` 单趟无 salt、无迭代，弱口令极易被离线爆破；`zm2:` 每条随机 salt + 120000 次迭代派生 32 字节 AES 密钥，salt 自含于密文、解密无需外部状态。
+- **存量不迁移**：旧 `MD5` 派生只保留给 `zm1:` / 无前缀两条解密路径，与新写入路径彻底隔离，因此「改了 KDF 存量就解不开」的旧约束不再成立。存量一条都不用动；需要更强保护时**按需**读出明文再用新格式重加密即可（滚动重加密 / 主密钥轮换时顺带完成）。
+- **信封加密不受影响**：`encryptWithKey` / `decryptWithKey` 走原始 16/24/32 字节数据密钥、不经过任何 KDF、产出 `zm1:`，行为逐字节不变。
+- **性能**：`zm2:` 每次加解密多一次 PBKDF2（十几万次 HMAC，单次几十毫秒量级），是用计算成本换离线爆破难度；存量 `zm1:`/ECB 解密仍走 MD5，零额外开销。
+- **失败语义**：错误密钥、密文/tag 被篡改、未知前缀、畸形 payload 一律抛异常，绝不静默返回明文或空串。
 
 ---
 
