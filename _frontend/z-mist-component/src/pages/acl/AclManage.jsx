@@ -198,9 +198,9 @@ function AclManage() {
                         title: '操作', width: 140, fixed: 'right',
                         render: (_, r) => (
                             <Space size="small">
-                                <Button type="link" icon={<EditOutlined/>}
+                                <Button type="link" size="small"
                                         onClick={() => handleEdit(r)}>编辑</Button>
-                                <Button type="link" danger icon={<DeleteOutlined/>}
+                                <Button type="link" size="small" danger
                                         onClick={() => handleDelete(r)}>删除</Button>
                             </Space>
                         )

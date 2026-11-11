@@ -164,11 +164,11 @@ function RotationPolicy() {
                         title: '操作', width: 240, fixed: 'right',
                         render: (_, r) => (
                             <Space size="small">
-                                <Button type="link" icon={<PlayCircleOutlined/>}
+                                <Button type="link" size="small"
                                         onClick={() => handleTrigger(r)}>立即触发</Button>
-                                <Button type="link" icon={<EditOutlined/>}
+                                <Button type="link" size="small"
                                         onClick={() => handleEdit(r)}>编辑</Button>
-                                <Button type="link" danger icon={<DeleteOutlined/>}
+                                <Button type="link" size="small" danger
                                         onClick={() => handleDelete(r)}>删除</Button>
                             </Space>
                         )

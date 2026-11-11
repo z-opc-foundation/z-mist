@@ -154,11 +154,11 @@ function AppManage() {
                         title: '操作', width: 280, fixed: 'right',
                         render: (_, r) => (
                             <Space size="small">
-                                <Button type="link" icon={<EditOutlined/>}
+                                <Button type="link" size="small"
                                         onClick={() => handleEdit(r)}>编辑</Button>
-                                <Button type="link" icon={<KeyOutlined/>}
+                                <Button type="link" size="small"
                                         onClick={() => handleResetSecret(r)}>重置密钥</Button>
-                                <Button type="link" danger icon={<DeleteOutlined/>}
+                                <Button type="link" size="small" danger
                                         onClick={() => handleDelete(r)}>删除</Button>
                             </Space>
                         )

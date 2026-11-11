@@ -162,27 +162,25 @@ function SecretList() {
             fixed: 'right',
             render: (_, record) => (
                 <Space size="small">
-                    <Button type="link" icon={<EyeOutlined/>}
+                    <Button type="link" size="small"
                             onClick={() => navigate(`/z-mist/secret/detail/${record.id}`)}>
                         详情
                     </Button>
                     <Button
-                        type="link"
-                        icon={<EditOutlined/>}
+                        type="link" size="small"
                         onClick={() => navigate(`/z-mist/secret/edit/${record.id}`)}
                     >
                         编辑
                     </Button>
                     <Button
-                        type="link"
+                        type="link" size="small"
                         onClick={() => handleRotate(record)}
                     >
                         轮换
                     </Button>
                     <Button
-                        type="link"
+                        type="link" size="small"
                         danger
-                        icon={<DeleteOutlined/>}
                         onClick={() => handleDelete(record)}
                     >
                         删除

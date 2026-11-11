@@ -292,8 +292,7 @@ function SecretDetail() {
                                             title: '操作', width: 120, fixed: 'right',
                                             render: (_, r) => (
                                                 <Button
-                                                    type="link"
-                                                    icon={<RollbackOutlined/>}
+                                                    type="link" size="small"
                                                     onClick={() => handleRollback(r.id)}
                                                     disabled={r.opType === 'ROLLBACK'}
                                                 >
