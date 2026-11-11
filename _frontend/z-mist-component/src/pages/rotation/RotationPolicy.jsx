@@ -1,6 +1,6 @@
 import {useEffect, useState} from 'react'
 import {Button, Form, Input, InputNumber, message, Modal, Select, Space, Switch, Tag} from 'antd'
-import {DeleteOutlined, EditOutlined, PlayCircleOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons'
+import {PlusOutlined, ReloadOutlined} from '@ant-design/icons'
 import {ErrorState, ListTable} from '@yuku123/z-frontend-common/ui'
 import request from '../../services/request'
 

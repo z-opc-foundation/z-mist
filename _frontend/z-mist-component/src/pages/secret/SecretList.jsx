@@ -2,10 +2,7 @@ import {useEffect, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import {Button, message, Modal, Space, Tag} from 'antd'
 import {
-    DeleteOutlined,
-    EditOutlined,
     ExclamationCircleOutlined,
-    EyeOutlined,
     PlusOutlined,
     ReloadOutlined,
 } from '@ant-design/icons'
