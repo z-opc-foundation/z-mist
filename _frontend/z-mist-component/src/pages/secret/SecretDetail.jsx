@@ -181,7 +181,7 @@ function SecretDetail() {
         return (
             <div>
                 {/* 子路径详情页（/z-mist/secret/detail/:id）可以写 PageHeader —— 菜单里看不出是哪条实体 */}
-                <PageHeader title="密钥详情" back onBack={() => navigate('/z-mist/secret')}/>
+                <PageHeader title="密钥详情" back onBack={() => navigate('..')}/>
                 <ErrorState title="密钥不存在" description="该密钥可能已被删除，返回列表重新选择"/>
             </div>
         )
@@ -192,7 +192,7 @@ function SecretDetail() {
             <PageHeader
                 title={`密钥详情: ${secret.secretName || secret.secretKey}`}
                 back
-                onBack={() => navigate('/z-mist/secret')}
+                onBack={() => navigate('..')}
                 extra={
                     <>
                         <Button icon={<HistoryOutlined/>} onClick={handleRotate} type="primary">立即轮换</Button>
