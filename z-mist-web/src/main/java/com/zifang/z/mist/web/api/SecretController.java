@@ -2,7 +2,7 @@ package com.zifang.z.mist.web.api;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.zifang.z.mist.common.Constance;
 import com.zifang.z.mist.common.Result;
@@ -91,7 +91,7 @@ public class SecretController {
      */
     private static final ObjectMapper FALLBACK_BODY_MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule())
-            .setPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CAMEL_CASE)
+            .setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
     /** 实际使用的请求体绑定 mapper（Spring 注入时按平台配置派生，独立部署时用兜底实例）。 */
@@ -109,7 +109,7 @@ public class SecretController {
             return;
         }
         this.bodyMapper = objectMapper.copy()
-                .setPropertyNamingStrategy(PropertyNamingStrategy.LOWER_CAMEL_CASE)
+                .setPropertyNamingStrategy(PropertyNamingStrategies.LOWER_CAMEL_CASE)
                 .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
