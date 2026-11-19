@@ -2,6 +2,9 @@ package com.zifang.z.mist.web.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretAcl;
 import com.zifang.z.mist.core.domain.mapper.ZMistSecretAclMapper;
@@ -10,12 +13,12 @@ import com.zifang.z.mist.web.api.request.AclReq;
 import com.zifang.z.mist.web.api.response.AclResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -51,7 +54,8 @@ public class AclController {
     @Operation(summary = "创建授权")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping
-    public Result<AclResp> create(@RequestBody AclReq aclReq, HttpServletRequest request) {
+    @BizApi(summary = "create", description = "", tags = { "z-mist" })
+    public Result<AclResp> create(@RequestBody @BizParam(name = "aclReq", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) AclReq aclReq, HttpServletRequest request) {
         ZMistSecretAcl body = new ZMistSecretAcl();
         BeanUtils.copyProperties(aclReq, body);
         Result<AclResp> result = new Result<>();
@@ -84,7 +88,8 @@ public class AclController {
     @Operation(summary = "更新授权")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PutMapping("/{id}")
-    public Result<AclResp> update(@PathVariable Long id, @RequestBody AclReq aclReq, HttpServletRequest request) {
+    @BizApi(summary = "update", description = "", tags = { "z-mist" })
+    public Result<AclResp> update(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, @RequestBody @BizParam(name = "aclReq", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) AclReq aclReq, HttpServletRequest request) {
         ZMistSecretAcl body = new ZMistSecretAcl();
         BeanUtils.copyProperties(aclReq, body);
         Result<AclResp> result = new Result<>();
@@ -103,7 +108,8 @@ public class AclController {
     @Operation(summary = "删除授权")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+    @BizApi(summary = "delete", description = "", tags = { "z-mist" })
+    public Result<Void> delete(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, HttpServletRequest request) {
         Result<Void> result = new Result<>();
         ZMistSecretAcl acl = aclMapper.selectById(id);
         int rows = aclMapper.deleteById(id);
@@ -121,13 +127,20 @@ public class AclController {
     @Operation(summary = "分页查询授权")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/page")
+    @BizApi(summary = "page", description = "", tags = { "z-mist" })
     public Map<String, Object> page(
-            @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "20") long size,
-            @RequestParam(required = false) String secretKey,
-            @RequestParam(required = false) String authorizedApp,
-            @RequestParam(required = false) String authorizedEnv,
-            @RequestParam(required = false) String namespace) {
+            @RequestParam(defaultValue = "1")
+            @BizParam(name = "current", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long current,
+            @RequestParam(defaultValue = "20")
+            @BizParam(name = "size", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long size,
+            @RequestParam(required = false)
+            @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false)
+            @BizParam(name = "authorizedApp", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String authorizedApp,
+            @RequestParam(required = false)
+            @BizParam(name = "authorizedEnv", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String authorizedEnv,
+            @RequestParam(required = false)
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         Page<ZMistSecretAcl> page = new Page<>(current, size);
@@ -155,12 +168,16 @@ public class AclController {
     @Operation(summary = "校验应用是否被授权访问密钥")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/check")
+    @BizApi(summary = "check", description = "", tags = { "z-mist" })
     public Map<String, Object> check(
-            @RequestParam String secretKey,
-            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
-            @RequestParam(required = false, defaultValue = "") String namespace,
-            @RequestParam String authorizedApp,
-            @RequestParam(required = false) String authorizedEnv) {
+            @RequestParam @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP")
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace,
+            @RequestParam @BizParam(name = "authorizedApp", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String authorizedApp,
+            @RequestParam(required = false)
+            @BizParam(name = "authorizedEnv", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String authorizedEnv) {
         // 不规则聚合输出(authorized/permissionLevel 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         LambdaQueryWrapper<ZMistSecretAcl> wrapper = new LambdaQueryWrapper<>();
@@ -198,3 +215,6 @@ public class AclController {
         return resp;
     }
 }
+
+
+

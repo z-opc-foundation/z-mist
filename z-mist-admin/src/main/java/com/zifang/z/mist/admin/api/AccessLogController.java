@@ -1,10 +1,13 @@
 package com.zifang.z.mist.admin.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
+import com.zifang.z.mist.admin.api.response.AccessLogResp;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretAccessLog;
 import com.zifang.z.mist.core.domain.mapper.ZMistSecretAccessLogMapper;
-import com.zifang.z.mist.admin.api.response.AccessLogResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.BeanUtils;
@@ -43,15 +46,24 @@ public class AccessLogController {
     @Operation(summary = "分页查询访问日志")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/page")
+    @BizApi(summary = "page", description = "", tags = { "z-mist" })
     public Map<String, Object> page(
-            @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "20") long size,
-            @RequestParam(required = false) String secretKey,
-            @RequestParam(required = false) String operator,
-            @RequestParam(required = false) String opType,
-            @RequestParam(required = false) Integer success,
-            @RequestParam(required = false) String startTime,
-            @RequestParam(required = false) String endTime) {
+            @RequestParam(defaultValue = "1")
+            @BizParam(name = "current", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long current,
+            @RequestParam(defaultValue = "20")
+            @BizParam(name = "size", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long size,
+            @RequestParam(required = false)
+            @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false)
+            @BizParam(name = "operator", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String operator,
+            @RequestParam(required = false)
+            @BizParam(name = "opType", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String opType,
+            @RequestParam(required = false)
+            @BizParam(name = "success", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) Integer success,
+            @RequestParam(required = false)
+            @BizParam(name = "startTime", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String startTime,
+            @RequestParam(required = false)
+            @BizParam(name = "endTime", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String endTime) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<ZMistSecretAccessLog> page =
@@ -87,7 +99,8 @@ public class AccessLogController {
     @Operation(summary = "查询最近 N 条日志")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/recent")
-    public Result<List<AccessLogResp>> recent(@RequestParam(defaultValue = "10") int limit) {
+    @BizApi(summary = "recent", description = "", tags = { "z-mist" })
+    public Result<List<AccessLogResp>> recent(@RequestParam(defaultValue = "10") @BizParam(name = "limit", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) int limit) {
         Result<List<AccessLogResp>> result = new Result<>();
         LambdaQueryWrapper<ZMistSecretAccessLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByDesc(ZMistSecretAccessLog::getGmtCreate).last("LIMIT " + limit);
@@ -100,7 +113,8 @@ public class AccessLogController {
     @Operation(summary = "查询失败日志")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/failed")
-    public Result<List<AccessLogResp>> failed(@RequestParam(defaultValue = "50") int limit) {
+    @BizApi(summary = "failed", description = "", tags = { "z-mist" })
+    public Result<List<AccessLogResp>> failed(@RequestParam(defaultValue = "50") @BizParam(name = "limit", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) int limit) {
         Result<List<AccessLogResp>> result = new Result<>();
         LambdaQueryWrapper<ZMistSecretAccessLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ZMistSecretAccessLog::getSuccess, false)
@@ -122,3 +136,6 @@ public class AccessLogController {
         return respList;
     }
 }
+
+
+

@@ -1,5 +1,6 @@
 package com.zifang.z.mist.web.api;
 
+import com.zifang.z.meta.api.annotation.BizApi;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,6 +28,7 @@ public class MistBaseHealthController {
      * @return 包含 status(UP) 与 service(z-mist-admin) 的健康信息映射
      */
     @GetMapping("/api/mist/health")
+    @BizApi(summary = "返回服务健康状态", description = "返回服务健康状态.", tags = { "z-mist" })
     public Map<String, Object> health() {
         // 不规则聚合输出(无 success/message/data 信封的自定义 health 输出), 保持原状
         Map<String, Object> result = new HashMap<>();
@@ -35,3 +37,4 @@ public class MistBaseHealthController {
         return result;
     }
 }
+

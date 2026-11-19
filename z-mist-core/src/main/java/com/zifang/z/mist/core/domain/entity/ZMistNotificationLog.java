@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizModel;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -18,6 +20,7 @@ import java.time.LocalDateTime;
  * @see ZMistNotificationLogMapper
  * @since 1.0.0
  */
+@BizModel(name = "通知发送日志", module = "z-mist", description = "通知发送日志(FEATURE026). 记录过期告警、轮换失败等通知的发送记录。channel 默认 log, 可扩展 webhook/email,失败原因写入 error_message。")
 @TableName("z_mist_notification_log")
 public class ZMistNotificationLog implements Serializable {
 
@@ -27,57 +30,68 @@ public class ZMistNotificationLog implements Serializable {
      * 主键ID
      */
     @TableId(type = IdType.AUTO)
+    @BizField(name = "主键ID", type = BizField.FieldType.INTEGER)
     private Long id;
 
     /**
      * 通知类型
      */
+    @BizField(name = "通知类型", type = BizField.FieldType.STRING)
     private String notifyType;
 
     /**
      * 密钥Key
      */
+    @BizField(name = "密钥Key", type = BizField.FieldType.STRING)
     private String secretKey;
 
     /**
      * 分组
      */
     @TableField("`group`")
+    @BizField(name = "分组", type = BizField.FieldType.STRING)
     private String group;
 
     /**
      * 命名空间
      */
+    @BizField(name = "命名空间", type = BizField.FieldType.STRING)
     private String namespace;
 
     /**
      * 通知渠道
      */
+    @BizField(name = "通知渠道", type = BizField.FieldType.STRING)
     private String channel;
 
     /**
      * 通知目标
      */
+    @BizField(name = "通知目标", type = BizField.FieldType.STRING)
     private String target;
 
     /**
      * 载荷数据
      */
+    @BizField(name = "载荷数据", type = BizField.FieldType.STRING)
     private String payload;
 
     /**
      * 是否成功(0:否,1:是)
      */
+    @BizField(name = "success", type = BizField.FieldType.INTEGER)
     private Integer success;
 
     /**
      * 错误信息
      */
+    @BizField(name = "错误信息", type = BizField.FieldType.STRING)
     private String errorMessage;
 
     /**
      * 创建时间
      */
+    @BizField(name = "创建时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtCreate;
 
     public Long getId() {
@@ -168,3 +182,6 @@ public class ZMistNotificationLog implements Serializable {
         this.gmtCreate = gmtCreate;
     }
 }
+
+
+

@@ -90,6 +90,7 @@
     </modules>
 
     <properties>
+        <z-meta.version>1.0.2</z-meta.version>
         <!-- CI-friendly 版本根 (发版改这一处即可；配下方常开 flatten，入库/发布件里落成字面量) -->
         <!-- 1.0.5: **SB3 火车全量迁移**（2026-10-30）—— parent 抬到 z-boot-parent 1.2.0
              （Boot 3.3.13 地板）、javax.annotation.* → jakarta.annotation.*、
@@ -265,6 +266,11 @@
                  z-util-core 与 z-boot-web-starter / z-boot-datasource-starter 的手工锁
                  （fleet 供 z-util-core 1.0.13，z-boot-parent 自家钉 z-boot 23 件 = 1.0.19）。
                  旧注释说"BOM 不管理自家 starter，需要显式锁版本"——1.0.19 起 parent 就是干这个的。 -->
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-meta-api</artifactId>
+                <version>${z-meta.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

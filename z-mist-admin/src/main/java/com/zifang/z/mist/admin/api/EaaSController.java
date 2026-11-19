@@ -1,9 +1,13 @@
 package com.zifang.z.mist.admin.api;
 
-import com.zifang.z.mist.core.domain.service.IZMistSecretService;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
 import com.zifang.z.mist.admin.api.request.EaaSRequest;
+import com.zifang.z.mist.core.domain.service.IZMistSecretService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -40,7 +43,8 @@ public class EaaSController {
     @Operation(summary = "加密(不落库)")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/encrypt")
-    public Map<String, Object> encrypt(@RequestBody EaaSRequest req, HttpServletRequest request) {
+    @BizApi(summary = "encrypt", description = "", tags = { "z-mist" })
+    public Map<String, Object> encrypt(@RequestBody @BizParam(name = "req", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) EaaSRequest req, HttpServletRequest request) {
         // 不规则聚合输出(algorithm 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         boolean success = false;
@@ -72,7 +76,8 @@ public class EaaSController {
     @Operation(summary = "解密(不落库)")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @PostMapping("/decrypt")
-    public Map<String, Object> decrypt(@RequestBody EaaSRequest req, HttpServletRequest request) {
+    @BizApi(summary = "decrypt", description = "", tags = { "z-mist" })
+    public Map<String, Object> decrypt(@RequestBody @BizParam(name = "req", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) EaaSRequest req, HttpServletRequest request) {
         // 不规则聚合输出(algorithm 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         boolean success = false;
@@ -117,3 +122,6 @@ public class EaaSController {
         return request.getRemoteAddr();
     }
 }
+
+
+

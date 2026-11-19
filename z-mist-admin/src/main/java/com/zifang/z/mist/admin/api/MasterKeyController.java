@@ -1,6 +1,12 @@
 package com.zifang.z.mist.admin.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
+import com.zifang.z.mist.admin.api.request.SecretReq;
+import com.zifang.z.mist.admin.api.response.EnvelopeResp;
+import com.zifang.z.mist.admin.api.response.MasterKeyHistoryResp;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.common.crypto.MistCrypto;
 import com.zifang.z.mist.core.domain.entity.ZMistMasterKeyHistory;
@@ -9,9 +15,6 @@ import com.zifang.z.mist.core.domain.mapper.ZMistMasterKeyHistoryMapper;
 import com.zifang.z.mist.core.domain.mapper.ZMistSecretInfoMapper;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
 import com.zifang.z.mist.core.domain.service.impl.ZMistSecretServiceImpl;
-import com.zifang.z.mist.admin.api.request.SecretReq;
-import com.zifang.z.mist.admin.api.response.EnvelopeResp;
-import com.zifang.z.mist.admin.api.response.MasterKeyHistoryResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
@@ -63,6 +66,7 @@ public class MasterKeyController {
     @Operation(summary = "查看主密钥历史")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/master-key/list")
+    @BizApi(summary = "listMasterKeys", description = "", tags = { "z-mist" })
     public Result<List<MasterKeyHistoryResp>> listMasterKeys() {
         Result<List<MasterKeyHistoryResp>> result = new Result<>();
         List<ZMistMasterKeyHistory> list = masterKeyMapper.selectList(
@@ -75,7 +79,8 @@ public class MasterKeyController {
     @Operation(summary = "主密钥轮换(re-encrypt 所有密钥值)")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/master-key/rotate")
-    public Map<String, Object> rotate(@RequestParam(required = false) String newMasterKey) {
+    @BizApi(summary = "rotate", description = "", tags = { "z-mist" })
+    public Map<String, Object> rotate(@RequestParam(required = false) @BizParam(name = "newMasterKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String newMasterKey) {
         // 不规则聚合输出(newVersion/newMd5/migratedSecrets 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         // 提到 try 外：失败分支也要报出"迁了多少条"，否则运维无从判断要不要重跑
@@ -167,7 +172,8 @@ public class MasterKeyController {
     @Operation(summary = "信封加密(主密钥+数据密钥)")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/master-key/envelope")
-    public Result<EnvelopeResp> envelope(@RequestParam String plainText) {
+    @BizApi(summary = "envelope", description = "", tags = { "z-mist" })
+    public Result<EnvelopeResp> envelope(@RequestParam @BizParam(name = "plainText", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String plainText) {
         Result<EnvelopeResp> result = new Result<>();
         try {
             // 1) 生成数据密钥(32 字节 Base64)
@@ -193,9 +199,10 @@ public class MasterKeyController {
     @Operation(summary = "解封(主密钥解数据密钥 + 数据密钥解业务数据)")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @PostMapping("/master-key/unenvelope")
+    @BizApi(summary = "unenvelope", description = "", tags = { "z-mist" })
     public Result<String> unenvelope(
-            @RequestParam String wrappedKey,
-            @RequestParam String cipherText) {
+            @RequestParam @BizParam(name = "wrappedKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String wrappedKey,
+            @RequestParam @BizParam(name = "cipherText", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String cipherText) {
         Result<String> result = new Result<>();
         try {
             String dataKey = secretService.decryptValue(wrappedKey, "AES");
@@ -213,7 +220,8 @@ public class MasterKeyController {
     @Operation(summary = "批量导入密钥(JSON 数组)")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/bulk/import")
-    public Map<String, Object> bulkImport(@RequestBody List<SecretReq> secrets) {
+    @BizApi(summary = "bulkImport", description = "", tags = { "z-mist" })
+    public Map<String, Object> bulkImport(@RequestBody @BizParam(name = "secrets", type = BizField.FieldType.JSON, description = "", position = BizParam.Position.BODY) List<SecretReq> secrets) {
         // 不规则聚合输出(total/imported/failed/errors 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         int success = 0, failed = 0;
@@ -242,9 +250,12 @@ public class MasterKeyController {
     @Operation(summary = "批量导出密钥")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/bulk/export")
+    @BizApi(summary = "bulkExport", description = "", tags = { "z-mist" })
     public Map<String, Object> bulkExport(
-            @RequestParam(required = false) String group,
-            @RequestParam(required = false, defaultValue = "") String namespace) {
+            @RequestParam(required = false)
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace) {
         // 不规则聚合输出(total/exportedAt/note 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         List<ZMistSecretInfo> list = secretService.listSecrets(group, null, namespace);
@@ -276,3 +287,6 @@ public class MasterKeyController {
         return respList;
     }
 }
+
+
+

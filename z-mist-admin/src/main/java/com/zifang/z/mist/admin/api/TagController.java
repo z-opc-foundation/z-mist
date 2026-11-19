@@ -1,20 +1,23 @@
 package com.zifang.z.mist.admin.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
+import com.zifang.z.mist.admin.api.request.TagReq;
+import com.zifang.z.mist.admin.api.response.TagResp;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretTag;
 import com.zifang.z.mist.core.domain.mapper.ZMistSecretTagMapper;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
-import com.zifang.z.mist.admin.api.request.TagReq;
-import com.zifang.z.mist.admin.api.response.TagResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +52,8 @@ public class TagController {
     @Operation(summary = "添加标签(upsert)")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping
-    public Result<TagResp> add(@RequestBody TagReq tagReq, HttpServletRequest request) {
+    @BizApi(summary = "add", description = "", tags = { "z-mist" })
+    public Result<TagResp> add(@RequestBody @BizParam(name = "tagReq", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) TagReq tagReq, HttpServletRequest request) {
         ZMistSecretTag body = new ZMistSecretTag();
         BeanUtils.copyProperties(tagReq, body);
         Result<TagResp> result = new Result<>();
@@ -94,7 +98,8 @@ public class TagController {
     @Operation(summary = "删除标签")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+    @BizApi(summary = "delete", description = "", tags = { "z-mist" })
+    public Result<Void> delete(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, HttpServletRequest request) {
         Result<Void> result = new Result<>();
         ZMistSecretTag tag = tagMapper.selectById(id);
         int rows = tagMapper.deleteById(id);
@@ -111,10 +116,13 @@ public class TagController {
     @Operation(summary = "查询某密钥的所有标签")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/by-secret")
+    @BizApi(summary = "listBySecret", description = "", tags = { "z-mist" })
     public Map<String, Object> listBySecret(
-            @RequestParam String secretKey,
-            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
-            @RequestParam(required = false, defaultValue = "") String namespace) {
+            @RequestParam @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP")
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         LambdaQueryWrapper<ZMistSecretTag> wrapper = new LambdaQueryWrapper<>();
@@ -131,9 +139,11 @@ public class TagController {
     @Operation(summary = "按 tagKey/tagValue 搜索密钥")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/search")
+    @BizApi(summary = "search", description = "", tags = { "z-mist" })
     public Map<String, Object> search(
-            @RequestParam String tagKey,
-            @RequestParam(required = false) String tagValue) {
+            @RequestParam @BizParam(name = "tagKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String tagKey,
+            @RequestParam(required = false)
+            @BizParam(name = "tagValue", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String tagValue) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         LambdaQueryWrapper<ZMistSecretTag> wrapper = new LambdaQueryWrapper<>();
@@ -170,3 +180,6 @@ public class TagController {
         return resp;
     }
 }
+
+
+

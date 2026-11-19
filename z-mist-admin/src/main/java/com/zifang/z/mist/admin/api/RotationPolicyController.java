@@ -2,22 +2,25 @@ package com.zifang.z.mist.admin.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
+import com.zifang.z.mist.admin.api.request.RotationPolicyReq;
+import com.zifang.z.mist.admin.api.response.RotationPolicyResp;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistRotationHistory;
 import com.zifang.z.mist.core.domain.entity.ZMistRotationPolicy;
 import com.zifang.z.mist.core.domain.mapper.ZMistRotationHistoryMapper;
 import com.zifang.z.mist.core.domain.mapper.ZMistRotationPolicyMapper;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
-import com.zifang.z.mist.admin.api.request.RotationPolicyReq;
-import com.zifang.z.mist.admin.api.response.RotationPolicyResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,7 +59,8 @@ public class RotationPolicyController {
     @Operation(summary = "创建轮换策略")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/policy")
-    public Result<RotationPolicyResp> create(@RequestBody RotationPolicyReq policyReq, HttpServletRequest request) {
+    @BizApi(summary = "create", description = "", tags = { "z-mist" })
+    public Result<RotationPolicyResp> create(@RequestBody @BizParam(name = "policyReq", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) RotationPolicyReq policyReq, HttpServletRequest request) {
         ZMistRotationPolicy body = new ZMistRotationPolicy();
         BeanUtils.copyProperties(policyReq, body);
         Result<RotationPolicyResp> result = new Result<>();
@@ -97,7 +101,8 @@ public class RotationPolicyController {
     @Operation(summary = "更新轮换策略")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PutMapping("/policy/{id}")
-    public Result<RotationPolicyResp> update(@PathVariable Long id, @RequestBody RotationPolicyReq policyReq,
+    @BizApi(summary = "update", description = "", tags = { "z-mist" })
+    public Result<RotationPolicyResp> update(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, @RequestBody @BizParam(name = "policyReq", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) RotationPolicyReq policyReq,
                                              HttpServletRequest request) {
         ZMistRotationPolicy body = new ZMistRotationPolicy();
         BeanUtils.copyProperties(policyReq, body);
@@ -117,7 +122,8 @@ public class RotationPolicyController {
     @Operation(summary = "删除轮换策略")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/policy/{id}")
-    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+    @BizApi(summary = "delete", description = "", tags = { "z-mist" })
+    public Result<Void> delete(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, HttpServletRequest request) {
         Result<Void> result = new Result<>();
         ZMistRotationPolicy policy = policyMapper.selectById(id);
         int rows = policyMapper.deleteById(id);
@@ -134,10 +140,14 @@ public class RotationPolicyController {
     @Operation(summary = "分页查询轮换策略")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/policy/page")
+    @BizApi(summary = "policyPage", description = "", tags = { "z-mist" })
     public Map<String, Object> policyPage(
-            @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "20") long size,
-            @RequestParam(required = false) String secretKey) {
+            @RequestParam(defaultValue = "1")
+            @BizParam(name = "current", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long current,
+            @RequestParam(defaultValue = "20")
+            @BizParam(name = "size", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long size,
+            @RequestParam(required = false)
+            @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         Page<ZMistRotationPolicy> page = new Page<>(current, size);
@@ -156,7 +166,8 @@ public class RotationPolicyController {
     @Operation(summary = "立即触发轮换")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/policy/{id}/trigger")
-    public Result<Void> trigger(@PathVariable Long id, HttpServletRequest request) {
+    @BizApi(summary = "trigger", description = "", tags = { "z-mist" })
+    public Result<Void> trigger(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, HttpServletRequest request) {
         Result<Void> result = new Result<>();
         ZMistRotationPolicy policy = policyMapper.selectById(id);
         if (policy == null) {
@@ -213,11 +224,16 @@ public class RotationPolicyController {
     @Operation(summary = "分页查询轮换历史")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/history/page")
+    @BizApi(summary = "historyPage", description = "", tags = { "z-mist" })
     public Map<String, Object> historyPage(
-            @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "20") long size,
-            @RequestParam(required = false) String secretKey,
-            @RequestParam(required = false) String triggerType) {
+            @RequestParam(defaultValue = "1")
+            @BizParam(name = "current", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long current,
+            @RequestParam(defaultValue = "20")
+            @BizParam(name = "size", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long size,
+            @RequestParam(required = false)
+            @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false)
+            @BizParam(name = "triggerType", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String triggerType) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         Page<ZMistRotationHistory> page = new Page<>(current, size);
@@ -260,3 +276,6 @@ public class RotationPolicyController {
         return resp;
     }
 }
+
+
+

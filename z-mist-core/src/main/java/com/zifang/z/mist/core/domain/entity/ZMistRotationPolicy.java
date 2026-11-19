@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizModel;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -18,6 +20,7 @@ import java.time.LocalDateTime;
  * @see ZMistRotationPolicyMapper
  * @since 1.0.0
  */
+@BizModel(name = "密钥自动轮换策略表", module = "z-mist", description = "密钥自动轮换策略表(FEATURE026). 每条记录绑定一个 (secretKey, group, namespace) 三元组,定义 cron 周期轮换。 由 RotationScheduler 每分钟扫描 next_rotation_time 到期的策略并执行。")
 @TableName("z_mist_secret_rotation_policy")
 public class ZMistRotationPolicy implements Serializable {
 
@@ -27,72 +30,86 @@ public class ZMistRotationPolicy implements Serializable {
      * 主键ID
      */
     @TableId(type = IdType.AUTO)
+    @BizField(name = "主键ID", type = BizField.FieldType.INTEGER)
     private Long id;
 
     /**
      * 密钥Key
      */
+    @BizField(name = "密钥Key", type = BizField.FieldType.STRING)
     private String secretKey;
 
     /**
      * 分组
      */
     @TableField("`group`")
+    @BizField(name = "分组", type = BizField.FieldType.STRING)
     private String group;
 
     /**
      * 命名空间
      */
+    @BizField(name = "命名空间", type = BizField.FieldType.STRING)
     private String namespace;
 
     /**
      * Cron表达式
      */
+    @BizField(name = "Cron表达式", type = BizField.FieldType.STRING)
     private String cronExpression;
 
     /**
      * 轮换策略
      */
+    @BizField(name = "轮换策略", type = BizField.FieldType.STRING)
     private String rotationStrategy;
 
     /**
      * 新值长度
      */
+    @BizField(name = "新值长度", type = BizField.FieldType.INTEGER)
     private Integer newValueLength;
 
     /**
      * 是否启用(0:否,1:是)
      */
+    @BizField(name = "是否启用", type = BizField.FieldType.INTEGER)
     private Integer enabled;
 
     /**
      * 上次轮换时间
      */
+    @BizField(name = "上次轮换时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime lastRotationTime;
 
     /**
      * 下次轮换时间
      */
+    @BizField(name = "下次轮换时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime nextRotationTime;
 
     /**
      * 描述
      */
+    @BizField(name = "描述", type = BizField.FieldType.STRING)
     private String description;
 
     /**
      * 创建人工号
      */
+    @BizField(name = "创建人工号", type = BizField.FieldType.STRING)
     private String creatorStaffNo;
 
     /**
      * 创建时间
      */
+    @BizField(name = "创建时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtCreate;
 
     /**
      * 修改时间
      */
+    @BizField(name = "修改时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtModified;
 
     public Long getId() {
@@ -207,3 +224,6 @@ public class ZMistRotationPolicy implements Serializable {
         this.gmtModified = gmtModified;
     }
 }
+
+
+

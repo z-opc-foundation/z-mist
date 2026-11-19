@@ -2,6 +2,9 @@ package com.zifang.z.mist.web.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistAppInfo;
 import com.zifang.z.mist.core.domain.mapper.ZMistAppInfoMapper;
@@ -11,12 +14,12 @@ import com.zifang.z.mist.web.api.response.AppResp;
 import com.zifang.z.mist.web.api.response.ResetSecretResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -53,7 +56,8 @@ public class AppController {
     @Operation(summary = "创建应用")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping
-    public Result<AppResp> create(@RequestBody AppReq appReq, HttpServletRequest request) {
+    @BizApi(summary = "create", description = "", tags = { "z-mist" })
+    public Result<AppResp> create(@RequestBody @BizParam(name = "appReq", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) AppReq appReq, HttpServletRequest request) {
         ZMistAppInfo body = new ZMistAppInfo();
         BeanUtils.copyProperties(appReq, body);
         Result<AppResp> result = new Result<>();
@@ -89,7 +93,8 @@ public class AppController {
     @Operation(summary = "更新应用")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PutMapping("/{id}")
-    public Result<AppResp> update(@PathVariable Long id, @RequestBody AppReq appReq, HttpServletRequest request) {
+    @BizApi(summary = "update", description = "", tags = { "z-mist" })
+    public Result<AppResp> update(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, @RequestBody @BizParam(name = "appReq", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) AppReq appReq, HttpServletRequest request) {
         ZMistAppInfo body = new ZMistAppInfo();
         BeanUtils.copyProperties(appReq, body);
         Result<AppResp> result = new Result<>();
@@ -108,7 +113,8 @@ public class AppController {
     @Operation(summary = "删除应用")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id, HttpServletRequest request) {
+    @BizApi(summary = "delete", description = "", tags = { "z-mist" })
+    public Result<Void> delete(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, HttpServletRequest request) {
         Result<Void> result = new Result<>();
         ZMistAppInfo app = appMapper.selectById(id);
         int rows = appMapper.deleteById(id);
@@ -126,11 +132,16 @@ public class AppController {
     @Operation(summary = "分页查询应用")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/page")
+    @BizApi(summary = "page", description = "", tags = { "z-mist" })
     public Map<String, Object> page(
-            @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "20") long size,
-            @RequestParam(required = false) String appName,
-            @RequestParam(required = false) String namespace) {
+            @RequestParam(defaultValue = "1")
+            @BizParam(name = "current", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long current,
+            @RequestParam(defaultValue = "20")
+            @BizParam(name = "size", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) long size,
+            @RequestParam(required = false)
+            @BizParam(name = "appName", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String appName,
+            @RequestParam(required = false)
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
         Page<ZMistAppInfo> page = new Page<>(current, size);
@@ -152,7 +163,8 @@ public class AppController {
     @Operation(summary = "查询应用详情")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/{id}")
-    public Result<AppResp> get(@PathVariable Long id) {
+    @BizApi(summary = "get", description = "", tags = { "z-mist" })
+    public Result<AppResp> get(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id) {
         Result<AppResp> result = new Result<>();
         ZMistAppInfo app = appMapper.selectById(id);
         result.setSuccess(app != null);
@@ -163,7 +175,8 @@ public class AppController {
     @Operation(summary = "重置 appSecret")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/{id}/reset-secret")
-    public Result<ResetSecretResp> resetSecret(@PathVariable Long id, HttpServletRequest request) {
+    @BizApi(summary = "resetSecret", description = "", tags = { "z-mist" })
+    public Result<ResetSecretResp> resetSecret(@PathVariable @BizParam(name = "id", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.PATH) Long id, HttpServletRequest request) {
         Result<ResetSecretResp> result = new Result<>();
         ZMistAppInfo app = appMapper.selectById(id);
         if (app == null) {
@@ -212,3 +225,6 @@ public class AppController {
         return resp;
     }
 }
+
+
+

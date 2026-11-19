@@ -1,6 +1,9 @@
 package com.zifang.z.mist.web.api;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
 import com.zifang.z.mist.core.domain.entity.ZMistStatsDaily;
 import com.zifang.z.mist.core.domain.mapper.ZMistSecretAccessLogMapper;
@@ -49,6 +52,7 @@ public class StatsController {
     @Operation(summary = "总览数据")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/overview")
+    @BizApi(summary = "overview", description = "", tags = { "z-mist" })
     public Map<String, Object> overview() {
         // 不规则聚合输出(自定义看板指标), 保持原状
         Map<String, Object> result = new HashMap<>();
@@ -80,7 +84,8 @@ public class StatsController {
     @Operation(summary = "最近 N 天每日统计")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/daily")
-    public Map<String, Object> daily(@RequestParam(defaultValue = "7") int days) {
+    @BizApi(summary = "daily", description = "", tags = { "z-mist" })
+    public Map<String, Object> daily(@RequestParam(defaultValue = "7") @BizParam(name = "days", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) int days) {
         // 不规则聚合输出(自定义序列行), 保持原状
         Map<String, Object> result = new HashMap<>();
         LocalDate endDate = LocalDate.now();
@@ -113,7 +118,8 @@ public class StatsController {
     @Operation(summary = "TOP N 访问密钥(7 天内)")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/top-secrets")
-    public Map<String, Object> topSecrets(@RequestParam(defaultValue = "10") int limit) {
+    @BizApi(summary = "topSecrets", description = "", tags = { "z-mist" })
+    public Map<String, Object> topSecrets(@RequestParam(defaultValue = "10") @BizParam(name = "limit", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) int limit) {
         // 不规则聚合输出(自定义聚合行), 保持原状
         Map<String, Object> result = new HashMap<>();
         // 用 access_log 实时聚合:GROUP BY secret_key
@@ -149,6 +155,7 @@ public class StatsController {
     @Operation(summary = "即将过期密钥(7 天内)")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/expiring")
+    @BizApi(summary = "expiring", description = "", tags = { "z-mist" })
     public Map<String, Object> expiring() {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
@@ -165,3 +172,6 @@ public class StatsController {
         return result;
     }
 }
+
+
+

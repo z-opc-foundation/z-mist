@@ -2,19 +2,19 @@ package com.zifang.z.mist.core.domain.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zifang.z.meta.api.annotation.BizMethod;
 import com.zifang.z.mist.common.Constance;
 import com.zifang.z.mist.common.crypto.MistCrypto;
 import com.zifang.z.mist.core.domain.entity.*;
 import com.zifang.z.mist.core.domain.mapper.*;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
+import jakarta.annotation.PostConstruct;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
-import jakarta.annotation.PostConstruct;
-import javax.crypto.Cipher;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.time.LocalDateTime;
@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.crypto.Cipher;
 
 /**
  * 密钥服务实现(FEATURE026:全功能增强).
@@ -91,6 +92,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "saveSecret", module = "z-mist", description = "", operation = BizMethod.Operation.CREATE)
     public ZMistSecretInfo saveSecret(ZMistSecretInfo secret) {
         LocalDateTime now = LocalDateTime.now();
         secret.setGmtCreate(now);
@@ -108,6 +110,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "updateSecret", module = "z-mist", description = "", operation = BizMethod.Operation.UPDATE)
     public ZMistSecretInfo updateSecret(ZMistSecretInfo secret) {
         LocalDateTime now = LocalDateTime.now();
         secret.setGmtModified(now);
@@ -135,6 +138,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "deleteSecret", module = "z-mist", description = "", operation = BizMethod.Operation.DELETE)
     public boolean deleteSecret(String secretKey, String group, String namespace) {
         LambdaQueryWrapper<ZMistSecretInfo> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ZMistSecretInfo::getSecretKey, secretKey)
@@ -150,6 +154,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "getSecret", module = "z-mist", description = "", operation = BizMethod.Operation.QUERY)
     public ZMistSecretInfo getSecret(String secretKey, String group, String namespace) {
         LambdaQueryWrapper<ZMistSecretInfo> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ZMistSecretInfo::getSecretKey, secretKey)
@@ -202,6 +207,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
      * @return 命中的密钥列表
      */
     @Override
+    @BizMethod(name = "密钥列表查询", module = "z-mist", description = "密钥列表查询. 缺省语义与 #searchSecrets 对齐 : null 与空串都表示\"不过滤\"。 早前这里是 if (namespace != null) —— 空串被当成\"精确匹配 namespace=''\"， 于是同一个参数名在两个端点有两种口径： /api/secret/list 不传 namespace ⇒ 只回 namespace 为空串的那几行（实测 total=1）， /api/secret/search 不传 namespace ⇒ 回全量（实测 total=11）。 同一个\"缺省\"含义在两个接口上给出两份答案，调用方无法判断哪个是全量。 注意：#getSecret / #deleteSecret 走的是\"按 (secretKey, group, namespace) 精确定位\"，那里的无条件 eq 是 有意为之 ，不在本次改动范围内。", operation = BizMethod.Operation.QUERY)
     public List<ZMistSecretInfo> listSecrets(String group, String appName, String namespace) {
         LambdaQueryWrapper<ZMistSecretInfo> wrapper = new LambdaQueryWrapper<>();
         if (group != null && !group.isEmpty()) {
@@ -218,6 +224,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "encryptValue", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public String encryptValue(String plainValue, String algorithm) {
         try {
             if (Constance.EncryptAlgorithm.AES.equals(algorithm)) {
@@ -232,6 +239,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "decryptValue", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public String decryptValue(String encryptedValue, String algorithm) {
         try {
             if (Constance.EncryptAlgorithm.AES.equals(algorithm)) {
@@ -273,6 +281,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
      * 轮换过程中并发进来的普通读写请求不会读到"改到一半"的主密钥。
      */
     @Override
+    @BizMethod(name = "用<b>显式给定</b>的主密钥解密（主密钥轮换用）", module = "z-mist", description = "用 显式给定 的主密钥解密（主密钥轮换用）. 不碰 #resolveMasterKey()，因此不需要临时改 JVM 全局系统属性 —— 轮换过程中并发进来的普通读写请求不会读到\"改到一半\"的主密钥。", operation = BizMethod.Operation.ACTION)
     public String decryptValueWithKey(String encryptedValue, String algorithm, String masterKey) {
         try {
             if (Constance.EncryptAlgorithm.RSA.equals(algorithm)) {
@@ -288,6 +297,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
      * 用<b>显式给定</b>的主密钥加密（主密钥轮换用）。理由同 {@link #decryptValueWithKey}。
      */
     @Override
+    @BizMethod(name = "用<b>显式给定</b>的主密钥加密（主密钥轮换用）。理由同 #decryptValueWithKey", module = "z-mist", description = "用 显式给定 的主密钥加密（主密钥轮换用）。理由同 #decryptValueWithKey。", operation = BizMethod.Operation.ACTION)
     public String encryptValueWithKey(String plainValue, String algorithm, String masterKey) {
         try {
             if (Constance.EncryptAlgorithm.RSA.equals(algorithm)) {
@@ -377,6 +387,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     // ============ P0: EaaS + 解密 + 搜索 + 历史 ============
 
     @Override
+    @BizMethod(name = "eaaSEncrypt", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public String eaaSEncrypt(String plainText, String algorithm) {
         if (plainText == null) {
             throw new IllegalArgumentException("plainText must not be null");
@@ -385,6 +396,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "eaaSDecrypt", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public String eaaSDecrypt(String cipherText, String algorithm) {
         if (cipherText == null) {
             throw new IllegalArgumentException("cipherText must not be null");
@@ -393,6 +405,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "decryptToPlain", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public String decryptToPlain(String secretKey, String group, String namespace, String cipherText) {
         String source = cipherText;
         if (source == null || source.isEmpty()) {
@@ -411,6 +424,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "searchSecrets", module = "z-mist", description = "", operation = BizMethod.Operation.QUERY)
     public List<ZMistSecretInfo> searchSecrets(String keyword, String group, String namespace) {
         LambdaQueryWrapper<ZMistSecretInfo> wrapper = new LambdaQueryWrapper<>();
         if (keyword != null && !keyword.isEmpty()) {
@@ -430,6 +444,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "listHistory", module = "z-mist", description = "", operation = BizMethod.Operation.QUERY)
     public List<ZMistSecretHistory> listHistory(String secretKey, String group, String namespace) {
         LambdaQueryWrapper<ZMistSecretHistory> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ZMistSecretHistory::getSecretKey, secretKey)
@@ -440,6 +455,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "rollbackToHistory", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public ZMistSecretInfo rollbackToHistory(Long historyId) {
         if (historyId == null) {
             throw new IllegalArgumentException("historyId must not be null");
@@ -476,6 +492,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     // ============ P1: 自动轮换 ============
 
     @Override
+    @BizMethod(name = "rotateNow", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public ZMistSecretInfo rotateNow(String secretKey, String group, String namespace, Integer newValueLength) {
         ZMistSecretInfo current = getSecret(secretKey, group, namespace);
         if (current == null) {
@@ -505,6 +522,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     // ============ P1: 动态密钥 ============
 
     @Override
+    @BizMethod(name = "generateDynamic", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public String generateDynamic(String secretKey, String group, String namespace, int ttlSeconds, String creator) {
         String plain;
         if (secretKey != null && !secretKey.isEmpty()) {
@@ -542,6 +560,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "readDynamic", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public String readDynamic(String dynKey) {
         if (dynKey == null || dynKey.isEmpty()) {
             throw new IllegalArgumentException("dynKey must not be empty");
@@ -565,6 +584,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
     }
 
     @Override
+    @BizMethod(name = "revokeDynamic", module = "z-mist", description = "", operation = BizMethod.Operation.ACTION)
     public boolean revokeDynamic(String dynKey) {
         if (dynKey == null || dynKey.isEmpty()) {
             return false;
@@ -631,6 +651,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
      * 提前到"启动即报"。
      */
     @Override
+    @BizMethod(name = "FEATURE021: 写访问日志.失败不抛异常 —— 审计失败不能阻塞业务", module = "z-mist", description = "FEATURE021: 写访问日志.失败不抛异常 —— 审计失败不能阻塞业务. 但\"不抛异常\"不等于\"静默\" ：早前这里是 log.warn(...)， 缺表（z_mist_secret_access_log 不存在）时每次读密钥都只留一行 warn， 端点照样 200、页面照样全绿，而\"谁在什么时候读了哪个密钥\"一条都没落库 —— 静默 catch 把\"表根本没建\"伪装成\"没有数据\"。 现在分两种情况： 表不存在/不可用 ⇒ 升级为 ERROR 并打上\"访问审计未落库\"字样， 让运维在告警里能直接看到\"合规痕迹正在丢失\"；为避免每次请求刷屏， 同一时间窗（60s）内只报一次，其余计数在下一条 ERROR 里带出。 其它异常 ⇒ 同样升级为 ERROR （审计失败本身就是合规事件， 不该停在 warn 级别被日常日志淹没）。 另外 #selfCheckAuditTable() 在启动期主动探一次表，把问题从\"运行中静默\" 提前到\"启动即报\"。", operation = BizMethod.Operation.ACTION)
     public void recordAccess(String secretKey, String group, String namespace,
                              String opType, String operator, String operatorIp,
                              boolean success, String errorMessage) {
@@ -667,6 +688,7 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
      * 但必须让运维在启动日志里一眼看到。
      */
     @PostConstruct
+    @BizMethod(name = "启动期自检: 访问审计表到底在不在", module = "z-mist", description = "启动期自检: 访问审计表到底在不在. 缺表时不能只靠运行期 catch 兜着 —— 那样要等到第一条密钥被读才暴露， 而那之前\"审计没在工作\"这件事没有任何人知道。这里在 bean 初始化后主动探一次： 表不存在 ⇒ 直接 ERROR，并指明补表脚本位置。 不抛异常 ：审计表缺失不应该让整个服务起不来（读端点仍要可用）， 但必须让运维在启动日志里一眼看到。", operation = BizMethod.Operation.ACTION)
     public void selfCheckAuditTable() {
         try {
             Long count = secretAccessLogMapper.selectCount(null);
@@ -724,3 +746,6 @@ public class ZMistSecretServiceImpl extends ServiceImpl<ZMistSecretInfoMapper, Z
         return false;
     }
 }
+
+
+

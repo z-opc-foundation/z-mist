@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizModel;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -15,6 +17,7 @@ import java.time.LocalDateTime;
  * @see ZMistSecretInfoMapper
  * @since 1.0.0
  */
+@BizModel(name = "密钥信息表", module = "z-mist", description = "密钥信息表.")
 @TableName("z_mist_secret_info")
 public class ZMistSecretInfo implements Serializable {
 
@@ -24,92 +27,110 @@ public class ZMistSecretInfo implements Serializable {
      * 主键ID
      */
     @TableId(type = IdType.AUTO)
+    @BizField(name = "主键ID", type = BizField.FieldType.INTEGER)
     private Long id;
 
     /**
      * 密钥Key
      */
+    @BizField(name = "密钥Key", type = BizField.FieldType.STRING)
     private String secretKey;
 
     /**
      * 密钥名称
      */
+    @BizField(name = "密钥名称", type = BizField.FieldType.STRING)
     private String secretName;
 
     /**
      * 分组
      */
     @TableField("`group`")
+    @BizField(name = "分组", type = BizField.FieldType.STRING)
     private String group;
 
     /**
      * 应用名
      */
+    @BizField(name = "应用名", type = BizField.FieldType.STRING)
     private String appName;
 
     /**
      * 命名空间
      */
+    @BizField(name = "命名空间", type = BizField.FieldType.STRING)
     private String namespace;
 
     /**
      * 加密后的值
      */
+    @BizField(name = "加密后的值", type = BizField.FieldType.STRING)
     private String encryptedValue;
 
     /**
      * 值的MD5
      */
+    @BizField(name = "值的MD5", type = BizField.FieldType.STRING)
     private String valueMd5;
 
     /**
      * 加密算法
      */
+    @BizField(name = "加密算法", type = BizField.FieldType.STRING)
     private String encryptAlgorithm;
 
     /**
      * 密钥版本
      */
+    @BizField(name = "密钥版本", type = BizField.FieldType.STRING)
     private String keyVersion;
 
     /**
      * 密钥类型
      */
+    @BizField(name = "密钥类型", type = BizField.FieldType.STRING)
     private String secretType;
 
     /**
      * 描述
      */
+    @BizField(name = "描述", type = BizField.FieldType.STRING)
     private String description;
 
     /**
      * 过期时间
      */
+    @BizField(name = "过期时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime expireTime;
 
     /**
      * 创建时间
      */
+    @BizField(name = "创建时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtCreate;
 
     /**
      * 修改时间
      */
+    @BizField(name = "修改时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtModified;
 
     /**
      * 创建人工号
      */
+    @BizField(name = "创建人工号", type = BizField.FieldType.STRING)
     private String creatorStaffNo;
 
     /**
      * 创建人昵称
      */
+    @BizField(name = "创建人昵称", type = BizField.FieldType.STRING)
     private String creatorStaffNickNm;
 
     /**
      * 源IP地址
      */
+    @BizField(name = "源IP地址", type = BizField.FieldType.STRING)
     private String sourceIp;
 
     public Long getId() {
@@ -256,3 +277,4 @@ public class ZMistSecretInfo implements Serializable {
         this.sourceIp = sourceIp;
     }
 }
+

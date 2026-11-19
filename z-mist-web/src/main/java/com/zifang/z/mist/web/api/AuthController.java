@@ -1,23 +1,26 @@
 package com.zifang.z.mist.web.api;
 
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.web.api.request.LoginRequest;
 import com.zifang.z.mist.web.api.response.LoginResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpServletRequest;
-import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.UUID;
+import javax.sql.DataSource;
 
 /**
  * z-mist 本地登录认证(FEATURE026 P0 + FEATURE065 审计增强).
@@ -48,7 +51,8 @@ public class AuthController {
 
     @Operation(summary = "登录获取 token")
     @PostMapping("/login")
-    public Result<LoginResp> login(@RequestBody LoginRequest req, HttpServletRequest request) {
+    @BizApi(summary = "login", description = "", tags = { "z-mist" })
+    public Result<LoginResp> login(@RequestBody @BizParam(name = "req", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.BODY) LoginRequest req, HttpServletRequest request) {
         Result<LoginResp> result = new Result<>();
         if (req == null || req.username == null || req.password == null) {
             result.setSuccess(false);
@@ -117,6 +121,7 @@ public class AuthController {
 
     @Operation(summary = "登出(仅前端清 token,无状态)")
     @PostMapping("/logout")
+    @BizApi(summary = "logout", description = "", tags = { "z-mist" })
     public Result<Void> logout(HttpServletRequest request) {
         Result<Void> result = new Result<>();
         result.setSuccess(true);
@@ -164,3 +169,6 @@ public class AuthController {
         return request.getRemoteAddr();
     }
 }
+
+
+

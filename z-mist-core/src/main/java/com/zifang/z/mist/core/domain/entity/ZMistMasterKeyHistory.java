@@ -3,6 +3,8 @@ package com.zifang.z.mist.core.domain.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizModel;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -17,6 +19,7 @@ import java.time.LocalDateTime;
  * @see ZMistMasterKeyHistoryMapper
  * @since 1.0.0
  */
+@BizModel(name = "主密钥历史表", module = "z-mist", description = "主密钥历史表(FEATURE026). 同一 key_alias 可对应多版本主密钥,用于支持 re-encrypt 主密钥轮换。 每次新增主密钥写一行,enabled=1 表示当前活跃版本。")
 @TableName("z_mist_master_key_history")
 public class ZMistMasterKeyHistory implements Serializable {
 
@@ -26,51 +29,61 @@ public class ZMistMasterKeyHistory implements Serializable {
      * 主键ID
      */
     @TableId(type = IdType.AUTO)
+    @BizField(name = "主键ID", type = BizField.FieldType.INTEGER)
     private Long id;
 
     /**
      * 密钥别名
      */
+    @BizField(name = "密钥别名", type = BizField.FieldType.STRING)
     private String keyAlias;
 
     /**
      * 密钥版本
      */
+    @BizField(name = "密钥版本", type = BizField.FieldType.STRING)
     private String keyVersion;
 
     /**
      * 密钥MD5
      */
+    @BizField(name = "密钥MD5", type = BizField.FieldType.STRING)
     private String keyMd5;
 
     /**
      * 加密算法
      */
+    @BizField(name = "加密算法", type = BizField.FieldType.STRING)
     private String algorithm;
 
     /**
      * 是否启用(0:否,1:是)
      */
+    @BizField(name = "是否启用", type = BizField.FieldType.INTEGER)
     private Integer enabled;
 
     /**
      * 激活时间
      */
+    @BizField(name = "激活时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime activatedTime;
 
     /**
      * 停用时间
      */
+    @BizField(name = "停用时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime deactivatedTime;
 
     /**
      * 创建者
      */
+    @BizField(name = "创建者", type = BizField.FieldType.STRING)
     private String creator;
 
     /**
      * 创建时间
      */
+    @BizField(name = "创建时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtCreate;
 
     public Long getId() {
@@ -153,3 +166,6 @@ public class ZMistMasterKeyHistory implements Serializable {
         this.gmtCreate = gmtCreate;
     }
 }
+
+
+

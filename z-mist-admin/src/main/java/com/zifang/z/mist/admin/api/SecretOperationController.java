@@ -1,18 +1,21 @@
 package com.zifang.z.mist.admin.api;
 
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
+import com.zifang.z.mist.admin.api.response.SecretResp;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretHistory;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
 import com.zifang.z.mist.core.domain.service.IZMistSecretService;
-import com.zifang.z.mist.admin.api.response.SecretResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,11 +48,15 @@ public class SecretOperationController {
     @Operation(summary = "获取密钥明文")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/plain")
+    @BizApi(summary = "getPlain", description = "", tags = { "z-mist" })
     public Result<String> getPlain(
-            @RequestParam String secretKey,
-            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
-            @RequestParam(required = false, defaultValue = "") String namespace,
-            @RequestParam(required = false) String cipherText,
+            @RequestParam @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP")
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace,
+            @RequestParam(required = false)
+            @BizParam(name = "cipherText", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String cipherText,
             HttpServletRequest request) {
         Result<String> result = new Result<>();
         boolean success = false;
@@ -73,10 +80,14 @@ public class SecretOperationController {
     @Operation(summary = "关键字搜索密钥")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/search")
+    @BizApi(summary = "search", description = "", tags = { "z-mist" })
     public Map<String, Object> search(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String group,
-            @RequestParam(required = false, defaultValue = "") String namespace,
+            @RequestParam(required = false)
+            @BizParam(name = "keyword", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String keyword,
+            @RequestParam(required = false)
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace,
             HttpServletRequest request) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
@@ -102,10 +113,13 @@ public class SecretOperationController {
     @Operation(summary = "查询历史版本")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/history/list")
+    @BizApi(summary = "historyList", description = "", tags = { "z-mist" })
     public Map<String, Object> historyList(
-            @RequestParam String secretKey,
-            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
-            @RequestParam(required = false, defaultValue = "") String namespace,
+            @RequestParam @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP")
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace,
             HttpServletRequest request) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
@@ -131,8 +145,9 @@ public class SecretOperationController {
     @Operation(summary = "回滚到指定历史版本")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/rollback")
+    @BizApi(summary = "rollback", description = "", tags = { "z-mist" })
     public Result<SecretResp> rollback(
-            @RequestParam Long historyId,
+            @RequestParam @BizParam(name = "historyId", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) Long historyId,
             HttpServletRequest request) {
         Result<SecretResp> result = new Result<>();
         boolean success = false;
@@ -156,11 +171,15 @@ public class SecretOperationController {
     @Operation(summary = "手动触发密钥轮换")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping("/rotate")
+    @BizApi(summary = "rotate", description = "", tags = { "z-mist" })
     public Result<SecretResp> rotate(
-            @RequestParam String secretKey,
-            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
-            @RequestParam(required = false, defaultValue = "") String namespace,
-            @RequestParam(required = false, defaultValue = "32") Integer newValueLength,
+            @RequestParam @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP")
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace,
+            @RequestParam(required = false, defaultValue = "32")
+            @BizParam(name = "newValueLength", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) Integer newValueLength,
             HttpServletRequest request) {
         Result<SecretResp> result = new Result<>();
         boolean success = false;
@@ -184,11 +203,16 @@ public class SecretOperationController {
     @Operation(summary = "生成动态密钥(带TTL)")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @PostMapping("/dynamic/generate")
+    @BizApi(summary = "generateDynamic", description = "", tags = { "z-mist" })
     public Map<String, Object> generateDynamic(
-            @RequestParam(required = false) String secretKey,
-            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
-            @RequestParam(required = false, defaultValue = "") String namespace,
-            @RequestParam(required = false, defaultValue = "3600") int ttlSeconds,
+            @RequestParam(required = false)
+            @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP")
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.QUERY) String namespace,
+            @RequestParam(required = false, defaultValue = "3600")
+            @BizParam(name = "ttlSeconds", type = BizField.FieldType.INTEGER, description = "", position = BizParam.Position.QUERY) int ttlSeconds,
             HttpServletRequest request) {
         // 不规则聚合输出(ttlSeconds 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
@@ -215,7 +239,8 @@ public class SecretOperationController {
     @Operation(summary = "读取动态密钥明文")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/dynamic/{dynKey}")
-    public Result<String> readDynamic(@PathVariable String dynKey, HttpServletRequest request) {
+    @BizApi(summary = "readDynamic", description = "", tags = { "z-mist" })
+    public Result<String> readDynamic(@PathVariable @BizParam(name = "dynKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.PATH) String dynKey, HttpServletRequest request) {
         Result<String> result = new Result<>();
         boolean success = false;
         String errMsg = null;
@@ -238,7 +263,8 @@ public class SecretOperationController {
     @Operation(summary = "主动撤销动态密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping("/dynamic/{dynKey}")
-    public Result<Void> revokeDynamic(@PathVariable String dynKey, HttpServletRequest request) {
+    @BizApi(summary = "revokeDynamic", description = "", tags = { "z-mist" })
+    public Result<Void> revokeDynamic(@PathVariable @BizParam(name = "dynKey", type = BizField.FieldType.STRING, description = "", position = BizParam.Position.PATH) String dynKey, HttpServletRequest request) {
         Result<Void> result = new Result<>();
         boolean success = false;
         String errMsg = null;
@@ -280,3 +306,6 @@ public class SecretOperationController {
         return resp;
     }
 }
+
+
+

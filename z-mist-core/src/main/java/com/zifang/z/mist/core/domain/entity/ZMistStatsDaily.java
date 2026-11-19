@@ -3,6 +3,8 @@ package com.zifang.z.mist.core.domain.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizModel;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -18,6 +20,7 @@ import java.time.LocalDateTime;
  * @see ZMistStatsDailyMapper
  * @since 1.0.0
  */
+@BizModel(name = "每日统计表", module = "z-mist", description = "每日统计表(FEATURE026). 由 StatsAggregator 每日凌晨聚合前一天数据写入,供数据看板查询。 stat_date 唯一约束保证 upsert 语义。")
 @TableName("z_mist_stats_daily")
 public class ZMistStatsDaily implements Serializable {
 
@@ -27,66 +30,79 @@ public class ZMistStatsDaily implements Serializable {
      * 主键ID
      */
     @TableId(type = IdType.AUTO)
+    @BizField(name = "主键ID", type = BizField.FieldType.INTEGER)
     private Long id;
 
     /**
      * 统计日期
      */
+    @BizField(name = "统计日期", type = BizField.FieldType.DATE)
     private LocalDate statDate;
 
     /**
      * 密钥总数
      */
+    @BizField(name = "密钥总数", type = BizField.FieldType.INTEGER)
     private Integer secretCount;
 
     /**
      * 新增数量
      */
+    @BizField(name = "新增数量", type = BizField.FieldType.INTEGER)
     private Integer newCount;
 
     /**
      * 更新数量
      */
+    @BizField(name = "更新数量", type = BizField.FieldType.INTEGER)
     private Integer updateCount;
 
     /**
      * 删除数量
      */
+    @BizField(name = "删除数量", type = BizField.FieldType.INTEGER)
     private Integer deleteCount;
 
     /**
      * 获取次数
      */
+    @BizField(name = "获取次数", type = BizField.FieldType.INTEGER)
     private Integer getCount;
 
     /**
      * 加密次数
      */
+    @BizField(name = "加密次数", type = BizField.FieldType.INTEGER)
     private Integer encryptCount;
 
     /**
      * 解密次数
      */
+    @BizField(name = "解密次数", type = BizField.FieldType.INTEGER)
     private Integer decryptCount;
 
     /**
      * 失败次数
      */
+    @BizField(name = "失败次数", type = BizField.FieldType.INTEGER)
     private Integer failedCount;
 
     /**
      * 轮换次数
      */
+    @BizField(name = "轮换次数", type = BizField.FieldType.INTEGER)
     private Integer rotationCount;
 
     /**
      * 创建时间
      */
+    @BizField(name = "创建时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtCreate;
 
     /**
      * 修改时间
      */
+    @BizField(name = "修改时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtModified;
 
     public Long getId() {
@@ -193,3 +209,6 @@ public class ZMistStatsDaily implements Serializable {
         this.gmtModified = gmtModified;
     }
 }
+
+
+

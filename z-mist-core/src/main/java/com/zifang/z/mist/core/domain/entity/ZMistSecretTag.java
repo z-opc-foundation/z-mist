@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizModel;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -18,6 +20,7 @@ import java.time.LocalDateTime;
  * @see ZMistSecretTagMapper
  * @since 1.0.0
  */
+@BizModel(name = "密钥标签表", module = "z-mist", description = "密钥标签表(FEATURE026). 支持多维度标签:env=prod, team=infra, project=trade。 同一 (secretKey, group, namespace) 可挂多个 tag。")
 @TableName("z_mist_secret_tag")
 public class ZMistSecretTag implements Serializable {
 
@@ -27,42 +30,50 @@ public class ZMistSecretTag implements Serializable {
      * 主键ID
      */
     @TableId(type = IdType.AUTO)
+    @BizField(name = "主键ID", type = BizField.FieldType.INTEGER)
     private Long id;
 
     /**
      * 密钥Key
      */
+    @BizField(name = "密钥Key", type = BizField.FieldType.STRING)
     private String secretKey;
 
     /**
      * 分组
      */
     @TableField("`group`")
+    @BizField(name = "分组", type = BizField.FieldType.STRING)
     private String group;
 
     /**
      * 命名空间
      */
+    @BizField(name = "命名空间", type = BizField.FieldType.STRING)
     private String namespace;
 
     /**
      * 标签键
      */
+    @BizField(name = "标签键", type = BizField.FieldType.STRING)
     private String tagKey;
 
     /**
      * 标签值
      */
+    @BizField(name = "标签值", type = BizField.FieldType.STRING)
     private String tagValue;
 
     /**
      * 创建时间
      */
+    @BizField(name = "创建时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtCreate;
 
     /**
      * 修改时间
      */
+    @BizField(name = "修改时间", type = BizField.FieldType.DATETIME)
     private LocalDateTime gmtModified;
 
     public Long getId() {
@@ -129,3 +140,6 @@ public class ZMistSecretTag implements Serializable {
         this.gmtModified = gmtModified;
     }
 }
+
+
+

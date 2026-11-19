@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.zifang.z.meta.api.annotation.BizApi;
+import com.zifang.z.meta.api.annotation.BizField;
+import com.zifang.z.meta.api.annotation.BizParam;
 import com.zifang.z.mist.common.Constance;
 import com.zifang.z.mist.common.Result;
 import com.zifang.z.mist.core.domain.entity.ZMistSecretInfo;
@@ -12,12 +15,12 @@ import com.zifang.z.mist.web.api.request.SecretReq;
 import com.zifang.z.mist.web.api.response.SecretResp;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -248,7 +251,8 @@ public class SecretController {
     @Operation(summary = "保存密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PostMapping
-    public Result<SecretResp> saveSecret(@RequestBody Map<String, Object> rawBody, HttpServletRequest request) {
+    @BizApi(summary = "保存(新增)密钥", description = "保存(新增)密钥. 对必填字段缺失时填充默认值,执行 PUT 限流检查,并在结束前记录访问日志. 请求体先经 #bindRequestBody 归一化并校验：未知字段一律拒绝， 不会再像早前那样\"反序列化成全 null → 补默认值 → 落一条 key/name 全 NULL 的行\"。", tags = { "z-mist" })
+    public Result<SecretResp> saveSecret(@RequestBody @BizParam(name = "rawBody", type = BizField.FieldType.JSON, description = "原始请求体", position = BizParam.Position.BODY) Map<String, Object> rawBody, HttpServletRequest request) {
         Result<SecretResp> result = new Result<>();
         if (!rateLimit(putCounters, currentIp(request), PUT_PER_MIN)) {
             result.setSuccess(false);
@@ -317,7 +321,8 @@ public class SecretController {
     @Operation(summary = "更新密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @PutMapping
-    public Result<SecretResp> updateSecret(@RequestBody Map<String, Object> rawBody, HttpServletRequest request) {
+    @BizApi(summary = "更新已有密钥", description = "更新已有密钥. 复用 PUT 限流桶,并在结束前记录访问日志. 与 #saveSecret 同一套请求体契约：未知字段拒绝、secret_key 与 encrypted_value 必填 ⇒ 不会再把已有行刷成 null。", tags = { "z-mist" })
+    public Result<SecretResp> updateSecret(@RequestBody @BizParam(name = "rawBody", type = BizField.FieldType.JSON, description = "原始请求体", position = BizParam.Position.BODY) Map<String, Object> rawBody, HttpServletRequest request) {
         Result<SecretResp> result = new Result<>();
         if (!rateLimit(putCounters, currentIp(request), PUT_PER_MIN)) {
             result.setSuccess(false);
@@ -368,10 +373,13 @@ public class SecretController {
     @Operation(summary = "删除密钥")
     @PreAuthorize("hasAuthority('mist:secret:write') or isAnonymous()")
     @DeleteMapping
+    @BizApi(summary = "按 secretKey 删除密钥", description = "按 secretKey 删除密钥.", tags = { "z-mist" })
     public Result<Void> deleteSecret(
-            @RequestParam String secretKey,
-            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
-            @RequestParam(required = false, defaultValue = "") String namespace,
+            @RequestParam @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "密钥主键", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP")
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "分组,缺省 DEFAULT_GROUP", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "命名空间,缺省空字符串", position = BizParam.Position.QUERY) String namespace,
             HttpServletRequest request) {
         Result<Void> result = new Result<>();
         if (!rateLimit(deleteCounters, currentIp(request), DELETE_PER_MIN)) {
@@ -417,10 +425,13 @@ public class SecretController {
     @Operation(summary = "获取密钥详情")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/get")
+    @BizApi(summary = "获取密钥详情", description = "获取密钥详情.", tags = { "z-mist" })
     public Result<SecretResp> getSecret(
-            @RequestParam String secretKey,
-            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP") String group,
-            @RequestParam(required = false, defaultValue = "") String namespace,
+            @RequestParam @BizParam(name = "secretKey", type = BizField.FieldType.STRING, description = "密钥主键", position = BizParam.Position.QUERY) String secretKey,
+            @RequestParam(required = false, defaultValue = "DEFAULT_GROUP")
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "分组,缺省 DEFAULT_GROUP", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false, defaultValue = "")
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "命名空间,缺省空字符串", position = BizParam.Position.QUERY) String namespace,
             HttpServletRequest request) {
         Result<SecretResp> result = new Result<>();
         if (!rateLimit(getCounters, currentIp(request), GET_PER_MIN)) {
@@ -472,10 +483,14 @@ public class SecretController {
     @Operation(summary = "密钥列表")
     @PreAuthorize("hasAuthority('mist:secret:read') or isAnonymous()")
     @GetMapping("/list")
+    @BizApi(summary = "密钥列表查询", description = "密钥列表查询. namespace 缺省语义与 /api/secret/search 对齐： 不传 = 不过滤 。 早前这里是 defaultValue = \"\"，空串又会被当成\"精确匹配 namespace=''\"， 于是同一个参数名在 list 与 search 上给出两份答案（实测 list total=1 / search total=11）。 现在缺省传 null，由服务层统一按\"空 = 不过滤\"处理。", tags = { "z-mist" })
     public Map<String, Object> listSecrets(
-            @RequestParam(required = false) String group,
-            @RequestParam(required = false) String appName,
-            @RequestParam(required = false) String namespace,
+            @RequestParam(required = false)
+            @BizParam(name = "group", type = BizField.FieldType.STRING, description = "分组过滤条件", position = BizParam.Position.QUERY) String group,
+            @RequestParam(required = false)
+            @BizParam(name = "appName", type = BizField.FieldType.STRING, description = "应用名过滤条件", position = BizParam.Position.QUERY) String appName,
+            @RequestParam(required = false)
+            @BizParam(name = "namespace", type = BizField.FieldType.STRING, description = "命名空间过滤条件,不传 = 不过滤", position = BizParam.Position.QUERY) String namespace,
             HttpServletRequest request) {
         // 不规则聚合输出(total 自定义 key), 保持原状
         Map<String, Object> result = new HashMap<>();
@@ -553,3 +568,6 @@ public class SecretController {
         long windowStart = System.currentTimeMillis();
     }
 }
+
+
+
