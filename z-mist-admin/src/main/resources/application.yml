@@ -31,6 +31,11 @@ spring:
 # 无 XML mapper 且 mapUnderscoreToCamelCase 为 MybatisConfiguration 默认 true,
 # 因此原 mybatis-plus.* 自动配置块不再需要 (yml 该段已删除)
 z:
+  # z-ext 预置埋点自登记控制台（运行期可被控制台切换扩展点实现）
+  ext:
+    console:
+      enabled: true
+      url: ${ZEXT_CONSOLE_URL:http://192.168.31.136:8888}
   base:
     db:
       mist:
